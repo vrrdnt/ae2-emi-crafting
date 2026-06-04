@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${version}",
+  "name": "Siscode Template Mod",
+  "description": "Please change this description",
+  "authors": [],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/template/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "org.siscode.template.platform.fabric.TemplateModClient"
+    ],
+    "main": [
+      "org.siscode.template.platform.fabric.TemplateMod"
+    ]
+  },
+  "mixins": [
+    "${mod_id}.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

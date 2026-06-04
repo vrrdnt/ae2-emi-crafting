@@ -1,0 +1,162 @@
+plugins {
+    id 'net.fabricmc.fabric-loom-remap' version "$loom_version"
+    id 'maven-publish'
+    id 'org.jetbrains.kotlin.jvm' version "2.3.20"
+}
+
+version = generateVersion()
+group = project.maven_group
+def targetJavaVersion = 17
+
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    maven {
+        name = 'ParchmentMC'
+        url = 'https://maven.parchmentmc.org'
+    }
+    // Pehkui:
+    maven {
+        name = "JitPack"
+        url = "https://jitpack.io"
+        content {
+            includeGroup "com.github.Virtuoel"
+        }
+    }
+    // Kaleido Config:
+    maven {
+        name = "Sleeping Town"
+        url 'https://repo.sleeping.town/'
+    }
+}
+
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        it.options.release.set(targetJavaVersion)
+    }
+}
+
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+    withSourcesJar()
+}
+
+kotlin {
+    jvmToolchain(targetJavaVersion)
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.archives_base_name}" }
+    }
+}
+
+/*
+ * Fabric Setup
+ */
+
+dependencies {
+    // To change the versions see the gradle.properties file
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.layered() {
+        officialMojangMappings()
+        parchment("org.parchmentmc.data:parchment-${project.minecraft_version}:${project.parchment_version}@zip")
+    }
+    modImplementation "net.fabricmc:fabric-loader:${project.fabric_loader_version}"
+
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "loader_version", project.fabric_loader_version
+    inputs.property "mod_id", project.mod_id
+    filteringCharset "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version,
+                "minecraft_version": project.minecraft_version,
+                "loader_version": project.fabric_loader_version,
+                "mod_id": project.mod_id
+    }
+}
+
+
+/*
+ * VCS-Based Automatic Versioning
+ */
+
+
+def getLoader() {
+    if (project.hasProperty("loom_version")) {
+        return "fabric"
+    } else if (project.hasProperty("forge_version") && !project.hasProperty("neoforge_version")) {
+        return "forge"
+    } else if (project.hasProperty("neoforge_version")){
+        return "neoforge"
+    }
+
+    return ""
+}
+
+// Okay this is awful. but it will do.
+def generateVersion() {
+    def tagData = git_getTagData()
+    def leadingZero = tagData[0].toString().matches("^\\d+.*") ? "" :  "0."
+    def loader = getLoader()
+    // If the number of commits since a tag is zero we are at a "publishing" point.
+    if (tagData[1] == 0) {
+        // Use user-facing format
+        return "${leadingZero}${tagData[0]}+${loader.isEmpty() ? "" : "$loader-"}$minecraft_version"
+    } else {
+        // Use VCS-backed formatting
+        // tagName+branch-commits-hash_loader+mc_version
+        def branchName = git_getBranchOrHead().split("/").last()
+        def shortSha = git_getShortSha()
+        def isDirty = git_isDirty()
+
+        return "${leadingZero}${tagData[0]}+$branchName-${tagData[1]}-${shortSha}${isDirty ? "+WIP" : ""}__${loader.isEmpty() ? "" : "$loader-"}$minecraft_version"
+    }
+}
+
+static def execAndGetOutput(String command) {
+    return command.execute().getInputStream().getText().trim()
+}
+
+static def git_getBranchOrHead() {
+    // Command: git rev-parse --abbrev-ref HEAD
+    return execAndGetOutput("git rev-parse --abbrev-ref HEAD")
+}
+
+static def git_getShortSha() {
+    return execAndGetOutput("git rev-parse --short HEAD")
+}
+
+static def git_getTagData() {
+    // Command: git describe --tags
+    def output = execAndGetOutput("git describe --tags --long")
+
+    if (output.toString().isBlank()) {
+        return new Tuple("PLEASE_ADD_INITIAL_TAG", 0)
+    }
+
+    def outputs = output.split("-")
+
+    return new Tuple(outputs[0], outputs[1].toInteger())
+}
+
+static def git_isDirty() {
+    def output = execAndGetOutput("git status --porcelain")
+    return !output.isEmpty()
+}
