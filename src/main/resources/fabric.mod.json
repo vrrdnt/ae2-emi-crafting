@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "${mod_id}",
   "version": "${version}",
-  "name": "Siscode Template Mod",
-  "description": "Please change this description",
+  "name": "AE2 Emi Integration",
+  "description": "Unofficial Integration between AE2 and EMI for versions without official support",
   "authors": [],
   "contact": {},
   "license": "MIT",
@@ -11,10 +11,10 @@
   "environment": "*",
   "entrypoints": {
     "client": [
-      "org.siscode.template.platform.fabric.TemplateModClient"
+      "org.blocovermelho.ae2emi.platform.fabric.Ae2EmiModClient"
     ],
     "main": [
-      "org.siscode.template.platform.fabric.TemplateMod"
+      "org.blocovermelho.ae2emi.platform.fabric.Ae2EmiMod"
     ]
   },
   "mixins": [

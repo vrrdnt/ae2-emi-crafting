@@ -1,6 +1,6 @@
-package org.siscode.template.platform.facade;
+package org.blocovermelho.ae2emi.platform.facade;
 
-public class TemplateMod {
+public class Ae2EmiMod {
     public static void onInitialize() {
         // Cross-platform initialization code.
     }

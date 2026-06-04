@@ -1,11 +1,11 @@
-package org.siscode.template.platform.fabric;
+package org.blocovermelho.ae2emi.platform.fabric;
 
 import net.fabricmc.api.ModInitializer;
-public class TemplateMod implements ModInitializer {
+public class Ae2EmiMod implements ModInitializer {
     @Override
     public void onInitialize() {
         // Calls cross-platform initializer
-        org.siscode.template.platform.facade.TemplateMod.onInitialize();
+        org.blocovermelho.ae2emi.platform.facade.Ae2EmiMod.onInitialize();
         // Fabric-specific initalization code
     }
 }
