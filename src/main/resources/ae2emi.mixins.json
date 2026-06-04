@@ -1,7 +1,7 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "org.siscode.template.mixin",
+  "package": "org.blocovermelho.ae2emi.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "ExampleMixin"

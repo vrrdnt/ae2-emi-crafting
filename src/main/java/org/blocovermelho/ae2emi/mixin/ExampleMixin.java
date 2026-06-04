@@ -1,4 +1,4 @@
-package org.siscode.template.mixin;
+package org.blocovermelho.ae2emi.mixin;
 
 import net.minecraft.server.dedicated.DedicatedServer;
 import org.slf4j.Logger;

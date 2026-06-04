@@ -18,18 +18,21 @@ repositories {
         name = 'ParchmentMC'
         url = 'https://maven.parchmentmc.org'
     }
-    // Pehkui:
-    maven {
-        name = "JitPack"
-        url = "https://jitpack.io"
-        content {
-            includeGroup "com.github.Virtuoel"
-        }
-    }
     // Kaleido Config:
     maven {
         name = "Sleeping Town"
         url 'https://repo.sleeping.town/'
+    }
+    // AE2
+    maven {
+        name "ModMaven"
+        url "https://modmaven.dev"
+    }
+
+    // EMI
+    maven {
+        name = "TerraformersMC"
+        url = "https://maven.terraformersmc.com/"
     }
 }
 
@@ -75,6 +78,14 @@ dependencies {
 
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
     modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+
+    implementation "folk.sisby:kaleido-config:${kaleido_config_version}"
+    include "folk.sisby:kaleido-config:${kaleido_config_version}"
+
+    modCompileOnly "dev.emi:emi-fabric:${project.emi_version}:api"
+    modLocalRuntime "dev.emi:emi-fabric:${project.emi_version}"
+
+    modImplementation("appeng:appliedenergistics2-fabric:${project.ae2_version}")
 }
 
 processResources {
@@ -88,7 +99,9 @@ processResources {
         expand "version": project.version,
                 "minecraft_version": project.minecraft_version,
                 "loader_version": project.fabric_loader_version,
-                "mod_id": project.mod_id
+                "mod_id": project.mod_id,
+                "ae2_version": project.ae2_version,
+                "emi_version": project.emi_version
     }
 }
 
