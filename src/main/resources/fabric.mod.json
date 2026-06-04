@@ -23,6 +23,11 @@
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-api": "*",
-    "minecraft": "${minecraft_version}"
+    "minecraft": "${minecraft_version}",
+    "emi": ">=${emi_version}",
+    "ae2": ">=${ae2_version}"
+  },
+  "recommends": {
+    "mcqoy": "*"
   }
 }
