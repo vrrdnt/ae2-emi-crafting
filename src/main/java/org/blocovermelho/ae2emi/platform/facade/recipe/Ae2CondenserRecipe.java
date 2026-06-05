@@ -1,4 +1,4 @@
-package org.blocovermelho.ae2emi.platform.facade.crafting.recipe;
+package org.blocovermelho.ae2emi.platform.facade.recipe;
 
 import appeng.api.config.CondenserOutput;
 import appeng.api.implementations.items.IStorageComponent;
@@ -15,7 +15,7 @@ import dev.emi.emi.api.widget.WidgetHolder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.category.Ae2Categories;
+import org.blocovermelho.ae2emi.platform.facade.recipe.category.Ae2Categories;
 
 import java.util.Collections;
 import java.util.List;

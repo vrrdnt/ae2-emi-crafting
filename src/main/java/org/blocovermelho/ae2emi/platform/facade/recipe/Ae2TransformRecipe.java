@@ -1,4 +1,4 @@
-package org.blocovermelho.ae2emi.platform.facade.crafting.recipe;
+package org.blocovermelho.ae2emi.platform.facade.recipe;
 
 import appeng.core.definitions.AEBlocks;
 import appeng.core.localization.ItemModText;
@@ -11,7 +11,7 @@ import dev.emi.emi.api.widget.TextWidget;
 import dev.emi.emi.api.widget.WidgetHolder;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.level.block.Blocks;
-import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.category.Ae2Categories;
+import org.blocovermelho.ae2emi.platform.facade.recipe.category.Ae2Categories;
 import org.blocovermelho.ae2emi.render.widget.FluidBlockSlot;
 
 import java.util.List;

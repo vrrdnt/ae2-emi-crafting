@@ -1,4 +1,4 @@
-package org.blocovermelho.ae2emi.platform.facade.crafting.recipe;
+package org.blocovermelho.ae2emi.platform.facade.recipe;
 
 import appeng.core.AppEng;
 import appeng.core.localization.ItemModText;
@@ -14,7 +14,7 @@ import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import org.blocovermelho.ae2emi.platform.facade.Ae2EmiMod;
-import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.category.Ae2Categories;
+import org.blocovermelho.ae2emi.platform.facade.recipe.category.Ae2Categories;
 import org.blocovermelho.ae2emi.render.widget.EntropySlot;
 import org.jetbrains.annotations.NotNull;
 

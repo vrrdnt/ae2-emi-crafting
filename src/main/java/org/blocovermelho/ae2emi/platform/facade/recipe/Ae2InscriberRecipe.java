@@ -1,4 +1,4 @@
-package org.blocovermelho.ae2emi.platform.facade.crafting.recipe;
+package org.blocovermelho.ae2emi.platform.facade.recipe;
 
 import appeng.core.AppEng;
 import appeng.recipes.handlers.InscriberProcessType;
@@ -8,7 +8,7 @@ import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.widget.WidgetHolder;
 import net.minecraft.resources.ResourceLocation;
-import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.category.Ae2Categories;
+import org.blocovermelho.ae2emi.platform.facade.recipe.category.Ae2Categories;
 
 import java.util.List;
 

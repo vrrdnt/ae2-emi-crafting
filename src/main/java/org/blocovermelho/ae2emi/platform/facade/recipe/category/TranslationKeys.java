@@ -1,4 +1,4 @@
-package org.blocovermelho.ae2emi.platform.facade.crafting.recipe.category;
+package org.blocovermelho.ae2emi.platform.facade.recipe.category;
 
 import appeng.core.localization.LocalizationEnum;
 

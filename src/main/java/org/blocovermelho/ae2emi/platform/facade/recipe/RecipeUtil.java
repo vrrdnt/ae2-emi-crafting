@@ -1,4 +1,4 @@
-package org.blocovermelho.ae2emi.platform.facade.crafting.recipe;
+package org.blocovermelho.ae2emi.platform.facade.recipe;
 
 import appeng.api.config.CondenserOutput;
 import appeng.api.features.P2PTunnelAttunementInternal;
@@ -17,7 +17,7 @@ import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeType;
 import org.blocovermelho.ae2emi.platform.facade.Ae2EmiMod;
-import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.category.Ae2Categories;
+import org.blocovermelho.ae2emi.platform.facade.recipe.category.Ae2Categories;
 
 import java.util.List;
 import java.util.function.Function;

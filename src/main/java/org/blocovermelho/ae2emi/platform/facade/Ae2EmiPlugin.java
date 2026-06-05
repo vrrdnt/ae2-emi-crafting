@@ -2,7 +2,7 @@ package org.blocovermelho.ae2emi.platform.facade;
 
 import dev.emi.emi.api.EmiPlugin;
 import dev.emi.emi.api.EmiRegistry;
-import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.RecipeUtil;
+import org.blocovermelho.ae2emi.platform.facade.recipe.RecipeUtil;
 
 public class Ae2EmiPlugin implements EmiPlugin {
     @Override
