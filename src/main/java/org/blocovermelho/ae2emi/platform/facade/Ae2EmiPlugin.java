@@ -5,13 +5,11 @@ import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.recipes.entropy.EntropyRecipe;
 import appeng.recipes.handlers.ChargerRecipe;
+import appeng.recipes.handlers.InscriberRecipe;
 import dev.emi.emi.api.EmiPlugin;
 import dev.emi.emi.api.EmiRegistry;
 import dev.emi.emi.api.stack.EmiStack;
-import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.Ae2ChargerRecipe;
-import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.Ae2CondenserRecipe;
-import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.Ae2EntropyManipulatorRecipe;
-import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.RecipeUtil;
+import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.*;
 import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.category.Ae2Categories;
 
 public class Ae2EmiPlugin implements EmiPlugin {
@@ -32,6 +30,10 @@ public class Ae2EmiPlugin implements EmiPlugin {
         registry.addCategory(Ae2Categories.ENTROPY);
         registry.addWorkstation(Ae2Categories.ENTROPY, EmiStack.of(AEItems.ENTROPY_MANIPULATOR));
         RecipeUtil.registerAllByType(registry, EntropyRecipe.TYPE, Ae2EntropyManipulatorRecipe::new);
+
+        registry.addCategory(Ae2Categories.INSCRIBER);
+        RecipeUtil.registerAllByType(registry, InscriberRecipe.TYPE, Ae2InscriberRecipe::new);
+        registry.addWorkstation(Ae2Categories.INSCRIBER, EmiStack.of(AEBlocks.INSCRIBER));
 
     }
 }
