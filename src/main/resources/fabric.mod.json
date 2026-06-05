@@ -15,6 +15,9 @@
     ],
     "main": [
       "org.blocovermelho.ae2emi.platform.fabric.Ae2EmiMod"
+    ],
+    "emi": [
+      "org.blocovermelho.ae2emi.platform.facade.Ae2EmiPlugin"
     ]
   },
   "mixins": [
