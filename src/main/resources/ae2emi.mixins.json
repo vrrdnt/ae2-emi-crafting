@@ -5,6 +5,7 @@
   "plugin": "org.blocovermelho.ae2emi.platform.facade.Ae2EmiMixinPlugin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "CraftingTermMenuAccessor",
     "SearchSyncMixin",
     "compat.ExmiDisableMixin"
   ],
