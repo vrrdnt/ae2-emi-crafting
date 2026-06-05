@@ -4,9 +4,10 @@
   "package": "org.blocovermelho.ae2emi.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "ExampleMixin"
+    "SearchSyncMixin"
   ],
   "client": [
+    "TerminalSettingsScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
