@@ -2,6 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "org.blocovermelho.ae2emi.mixin",
+  "plugin": "org.blocovermelho.ae2emi.platform.facade.Ae2EmiMixinPlugin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "SearchSyncMixin"
