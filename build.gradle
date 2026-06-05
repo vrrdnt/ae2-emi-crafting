@@ -34,6 +34,12 @@ repositories {
         name = "TerraformersMC"
         url = "https://maven.terraformersmc.com/"
     }
+
+    // Modrinth Maven
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+    }
 }
 
 
@@ -86,6 +92,12 @@ dependencies {
     modLocalRuntime "dev.emi:emi-fabric:${project.emi_version}"
 
     modImplementation("appeng:appliedenergistics2-fabric:${project.ae2_version}")
+    /* Optional Mod Support */
+    // Note: Anything after this line is supported at a best-effort basis
+    // Note: And said mods are not required for the mod to workd.
+    /* Optional Mod Support */
+
+    modCompileOnly("maven.modrinth:bpRHnWUb:${project.exmi_version}")
 }
 
 processResources {
