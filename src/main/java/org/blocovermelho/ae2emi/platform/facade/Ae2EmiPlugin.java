@@ -2,12 +2,15 @@ package org.blocovermelho.ae2emi.platform.facade;
 
 import appeng.api.config.CondenserOutput;
 import appeng.core.definitions.AEBlocks;
+import appeng.core.definitions.AEItems;
+import appeng.recipes.entropy.EntropyRecipe;
 import appeng.recipes.handlers.ChargerRecipe;
 import dev.emi.emi.api.EmiPlugin;
 import dev.emi.emi.api.EmiRegistry;
 import dev.emi.emi.api.stack.EmiStack;
 import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.Ae2ChargerRecipe;
 import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.Ae2CondenserRecipe;
+import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.Ae2EntropyManipulatorRecipe;
 import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.RecipeUtil;
 import org.blocovermelho.ae2emi.platform.facade.crafting.recipe.category.Ae2Categories;
 
@@ -25,6 +28,10 @@ public class Ae2EmiPlugin implements EmiPlugin {
         registry.addWorkstation(Ae2Categories.CONDENSER, EmiStack.of(AEBlocks.CONDENSER));
         registry.addRecipe(new Ae2CondenserRecipe(CondenserOutput.MATTER_BALLS));
         registry.addRecipe(new Ae2CondenserRecipe(CondenserOutput.SINGULARITY));
+
+        registry.addCategory(Ae2Categories.ENTROPY);
+        registry.addWorkstation(Ae2Categories.ENTROPY, EmiStack.of(AEItems.ENTROPY_MANIPULATOR));
+        RecipeUtil.registerAllByType(registry, EntropyRecipe.TYPE, Ae2EntropyManipulatorRecipe::new);
 
     }
 }
