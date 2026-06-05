@@ -6,6 +6,7 @@ import appeng.core.definitions.AEItems;
 import appeng.recipes.entropy.EntropyRecipe;
 import appeng.recipes.handlers.ChargerRecipe;
 import appeng.recipes.handlers.InscriberRecipe;
+import appeng.recipes.transform.TransformRecipe;
 import dev.emi.emi.api.EmiPlugin;
 import dev.emi.emi.api.EmiRegistry;
 import dev.emi.emi.api.stack.EmiStack;
@@ -35,5 +36,7 @@ public class Ae2EmiPlugin implements EmiPlugin {
         RecipeUtil.registerAllByType(registry, InscriberRecipe.TYPE, Ae2InscriberRecipe::new);
         registry.addWorkstation(Ae2Categories.INSCRIBER, EmiStack.of(AEBlocks.INSCRIBER));
 
+        registry.addCategory(Ae2Categories.WORLD_INTERACTION);
+        RecipeUtil.registerAllByType(registry, TransformRecipe.TYPE, Ae2TransformRecipe::new);
     }
 }
