@@ -1,24 +1,62 @@
-# AE2 EMI Integration
-*(previously known as "AE2 EMI Crafting")*
----
-Mod that allows AE2 versions without native EMI support to properly integrate with EMI.
+# AE2 EMI Crafting — Forge 1.20.1
 
-> [!NOTE]
-> Behavior here *may* change when compared to the official integration.
-> Although efforts with parity will be made it is not guaranteed to look alike.
+This is a downstream Forge port of [blocovermelho/ae2-emi-crafting](https://github.com/blocovermelho/ae2-emi-crafting). It adds EMI synthetic-favorite crafting controls to Applied Energistics 2 crafting terminals, with Monifactory as the primary compatibility target.
 
-> [!WARN]
-> Behavior is significantly different from the old mod.
-> This is still a pre-alpha, and we follow a different modding mentality then before. 
+The port patches the EMI integration already present in Monifactory's AE2 build. It does not register a second set of AE2 recipes or replace AE2's terminal UI.
 
-## Branch Information
-This is a completely rewritten version of the mod under a simplified build system.
+## Supported versions
 
-The old mod was done at a time when my knowledge of the underlying systems weren't as good as they are now.
-Support for other modloaders and versions will come once fabric 1.20.1 reaches a desired level of maturity.
+| Component | Supported version |
+| --- | --- |
+| Minecraft | 1.20.1 |
+| Forge | 47.4.13 |
+| Applied Energistics 2 | 15.4.10-cosmolite.36 |
+| EMI | 1.1.22+1.20.1+forge |
+| Monifactory | 0.13.7 and 0.13.8 |
 
-## Goals
-1. No dependencies other than AE2 and EMI. External mods like AE2WTLib will be supported as an optional dependency.
-2. Deep integration with other mods through mixin plugins.
-3. It does as little as possible. The mod should be lean and work well with heavier non-optimized features being behind a config option.
-4. Optional server-side integration for complex features. The mod works "well enough" as a client-side only addon whenever possible, but it should be installed on the server for deeper integration.
+Monifactory 0.13.7 and 0.13.8 use the same Forge, EMI, and AE2/MoniLabs dependency stack relevant to this mod. The AE2 version is deliberately pinned so an incompatible upstream handler change fails clearly instead of silently corrupting a transfer.
+
+## What it changes
+
+While an AE2 crafting terminal is open, the mod:
+
+- exposes the terminal's stored item inventory to EMI's craftability and synthetic-favorite calculations;
+- honors EMI's requested batch count for **craft one** and **craft all**;
+- supports crafting directly to the cursor or player inventory;
+- fills the crafting grid with the requested number of batches when no output destination is requested;
+- applies to crafting-terminal subclasses, including AE2 wireless crafting terminals that use the same handler; and
+- validates and performs all inventory extraction and crafting on the server.
+
+EMI remains a client-side dependency, but **AE2 EMI Crafting must be installed on both the client and server**. Single-player automatically supplies the server half through the integrated server.
+
+## Installation
+
+1. Download the regular JAR from this repository's [Releases](https://github.com/vrrdnt/ae2-emi-crafting/releases) page. Do not use the sources JAR.
+2. Put it in the client's `mods` directory.
+3. Put the same JAR in the server's `mods` directory when playing multiplayer.
+
+Use EMI's configured sidebar actions for craft one, craft all, craft to cursor, and craft to inventory. No additional key bindings are added by this mod.
+
+## Scope and tradeoffs
+
+Installing this mod opts crafting terminals into full stored-network exposure to EMI, even when AE2's `exposeInventoryToEmi` option is disabled. This is necessary for synthetic favorites to see ME-stored ingredients, but very large networks may make EMI's craftable calculations more expensive.
+
+Only items that are actually stored in the ME network, crafting grid, cursor, or player inventory count as available. An item that is merely autocraftable from an AE2 pattern is not advertised to EMI as if it already existed, and this mod does not automatically schedule those missing ingredients. A single **craft all** action is bounded to one crafting-grid stack (at most 64 recipe batches, and less for smaller stack sizes or output constraints).
+
+Pattern-terminal virtual ingredient encoding from [AE2 issue #8074](https://github.com/AppliedEnergistics/Applied-Energistics-2/issues/8074) is outside this Forge port's current scope.
+
+## Building
+
+The Gradle wrapper provisions the build toolchains. The resulting runtime JAR targets Java 17.
+
+```shell
+./gradlew build
+```
+
+Artifacts are written to `build/libs/`. The GitHub workflow builds every push and pull request targeting `forge/1.20.1`; tags beginning with `v` publish the runtime JAR to a GitHub Release.
+
+## Fork attribution and license
+
+The original project and history are by **siscodeorg / blocovermelho**. This branch is maintained as a downstream Forge port by **vrrdnt** and is not an official Applied Energistics 2, EMI, or Monifactory project. Issues specific to this port should be reported in this fork rather than upstream.
+
+The original [MIT license](LICENSE.txt) and copyright notice are preserved unchanged. Forge-port contributions are distributed under the same license.
