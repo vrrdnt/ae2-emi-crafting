@@ -1,0 +1,80 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - forge/1.20.1
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - forge/1.20.1
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Forge 1.20.1
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up Java 17 runtime toolchain
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Java 21 build toolchain
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            ./gradlew build "-Pmod_version=${GITHUB_REF_NAME#v}"
+          else
+            ./gradlew build
+          fi
+
+      - name: Stage runtime JAR
+        shell: bash
+        run: |
+          mkdir -p staging
+          find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' -exec cp {} staging/ \;
+          test "$(find staging -maxdepth 1 -type f -name '*.jar' | wc -l)" -eq 1
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ae2emi-forge-1.20.1-${{ github.run_number }}
+          path: staging/*.jar
+          if-no-files-found: error
+
+      - name: Publish tagged GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" staging/*.jar --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" staging/*.jar \
+              --verify-tag \
+              --generate-notes \
+              --title "$GITHUB_REF_NAME"
+          fi
