@@ -1,187 +1,98 @@
 plugins {
-    id 'net.fabricmc.fabric-loom-remap' version "$loom_version"
-    id 'maven-publish'
-    id 'org.jetbrains.kotlin.jvm' version "2.3.20"
+    id 'java'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.91'
 }
 
-version = generateVersion()
-group = project.maven_group
-def targetJavaVersion = 17
-
+version = mod_version
+group = maven_group
 
 base {
-    archivesName = project.archives_base_name
+    archivesName = archives_base_name
 }
-
-repositories {
-    maven {
-        name = 'ParchmentMC'
-        url = 'https://maven.parchmentmc.org'
-    }
-    // Kaleido Config:
-    maven {
-        name = "Sleeping Town"
-        url 'https://repo.sleeping.town/'
-    }
-    // AE2
-    maven {
-        name "ModMaven"
-        url "https://modmaven.dev"
-    }
-
-    // EMI
-    maven {
-        name = "TerraformersMC"
-        url = "https://maven.terraformersmc.com/"
-    }
-
-    // Modrinth Maven
-    maven {
-        name = "Modrinth"
-        url = "https://api.modrinth.com/maven"
-    }
-}
-
-
-tasks.withType(JavaCompile).configureEach {
-    it.options.encoding = "UTF-8"
-    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-        it.options.release.set(targetJavaVersion)
-    }
-}
-
 
 java {
-    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    if (JavaVersion.current() < javaVersion) {
-        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
-    }
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
     withSourcesJar()
 }
 
-kotlin {
-    jvmToolchain(targetJavaVersion)
-}
-
-jar {
-    from("LICENSE") {
-        rename { "${it}_${project.archives_base_name}" }
+repositories {
+    mavenCentral()
+    maven {
+        name = 'GTCEu Maven'
+        url = 'https://maven.gtceu.com'
+        content {
+            includeGroup 'appeng'
+        }
+    }
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/'
+    }
+    maven {
+        name = 'Sponge'
+        url = 'https://repo.spongepowered.org/maven'
     }
 }
 
-/*
- * Fabric Setup
- */
+legacyForge {
+    version = "${minecraft_version}-${forge_version}"
+
+    parchment {
+        mappingsVersion = mapping_version
+        minecraftVersion = minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+            programArguments.addAll '--nogui'
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
 
 dependencies {
-    // To change the versions see the gradle.properties file
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings loom.layered() {
-        officialMojangMappings()
-        parchment("org.parchmentmc.data:parchment-${project.minecraft_version}:${project.parchment_version}@zip")
-    }
-    modImplementation "net.fabricmc:fabric-loader:${project.fabric_loader_version}"
-
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-    modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
-
-    implementation "folk.sisby:kaleido-config:${kaleido_config_version}"
-    include "folk.sisby:kaleido-config:${kaleido_config_version}"
-
-    modCompileOnly "dev.emi:emi-fabric:${project.emi_version}:api"
-    modLocalRuntime "dev.emi:emi-fabric:${project.emi_version}"
-
-    modImplementation("appeng:appliedenergistics2-fabric:${project.ae2_version}")
-    /* Optional Mod Support */
-    // Note: Anything after this line is supported at a best-effort basis
-    // Note: And said mods are not required for the mod to workd.
-    /* Optional Mod Support */
-
-    modCompileOnly("maven.modrinth:bpRHnWUb:${project.exmi_version}")
+    modImplementation "appeng:appliedenergistics2-forge:${ae2_version}"
+    modImplementation "dev.emi:emi-forge:${emi_version}+${minecraft_version}"
 }
 
-processResources {
-    inputs.property "version", project.version
-    inputs.property "minecraft_version", project.minecraft_version
-    inputs.property "loader_version", project.fabric_loader_version
-    inputs.property "mod_id", project.mod_id
-    filteringCharset "UTF-8"
+tasks.named('processResources', ProcessResources).configure {
+    def properties = [
+            mod_id           : mod_id,
+            mod_name         : mod_name,
+            mod_version      : mod_version,
+            mod_license      : mod_license,
+            mod_authors      : mod_authors,
+            mod_credits      : mod_credits,
+            mod_description  : mod_description,
+            minecraft_version: minecraft_version,
+            forge_version    : forge_version,
+            ae2_version      : ae2_version,
+            emi_version      : emi_version
+    ]
+    inputs.properties properties
 
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version,
-                "minecraft_version": project.minecraft_version,
-                "loader_version": project.fabric_loader_version,
-                "mod_id": project.mod_id,
-                "ae2_version": project.ae2_version,
-                "emi_version": project.emi_version
+    filesMatching('META-INF/mods.toml') {
+        expand properties
     }
 }
 
-
-/*
- * VCS-Based Automatic Versioning
- */
-
-
-def getLoader() {
-    if (project.hasProperty("loom_version")) {
-        return "fabric"
-    } else if (project.hasProperty("forge_version") && !project.hasProperty("neoforge_version")) {
-        return "forge"
-    } else if (project.hasProperty("neoforge_version")){
-        return "neoforge"
+tasks.named('jar', Jar).configure {
+    from('LICENSE.txt') {
+        rename { "LICENSE_${archives_base_name}.txt" }
     }
-
-    return ""
+    finalizedBy 'reobfJar'
 }
 
-// Okay this is awful. but it will do.
-def generateVersion() {
-    def tagData = git_getTagData()
-    def leadingZero = tagData[0].toString().matches("^\\d+.*") ? "" :  "0."
-    def loader = getLoader()
-    // If the number of commits since a tag is zero we are at a "publishing" point.
-    if (tagData[1] == 0) {
-        // Use user-facing format
-        return "${leadingZero}${tagData[0]}+${loader.isEmpty() ? "" : "$loader-"}$minecraft_version"
-    } else {
-        // Use VCS-backed formatting
-        // tagName+branch-commits-hash_loader+mc_version
-        def branchName = git_getBranchOrHead().split("/").last()
-        def shortSha = git_getShortSha()
-        def isDirty = git_isDirty()
-
-        return "${leadingZero}${tagData[0]}+$branchName-${tagData[1]}-${shortSha}${isDirty ? "+WIP" : ""}__${loader.isEmpty() ? "" : "$loader-"}$minecraft_version"
-    }
-}
-
-static def execAndGetOutput(String command) {
-    return command.execute().getInputStream().getText().trim()
-}
-
-static def git_getBranchOrHead() {
-    // Command: git rev-parse --abbrev-ref HEAD
-    return execAndGetOutput("git rev-parse --abbrev-ref HEAD")
-}
-
-static def git_getShortSha() {
-    return execAndGetOutput("git rev-parse --short HEAD")
-}
-
-static def git_getTagData() {
-    // Command: git describe --tags
-    def output = execAndGetOutput("git describe --tags --long")
-
-    if (output.toString().isBlank()) {
-        return new Tuple("PLEASE_ADD_INITIAL_TAG", 0)
-    }
-
-    def outputs = output.split("-")
-
-    return new Tuple(outputs[0], outputs[1].toInteger())
-}
-
-static def git_isDirty() {
-    def output = execAndGetOutput("git status --porcelain")
-    return !output.isEmpty()
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release.set(17)
 }
