@@ -15,6 +15,23 @@ java {
     withSourcesJar()
 }
 
+sourceSets {
+    client {
+        compileClasspath += main.output
+        runtimeClasspath += main.output + main.runtimeClasspath + client.runtimeClasspath
+    }
+}
+
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+    clientRuntimeClasspath.extendsFrom clientLocalRuntime
+}
+
+obfuscation {
+    createRemappingConfiguration configurations.localRuntime
+    createRemappingConfiguration configurations.clientLocalRuntime
+}
+
 repositories {
     mavenCentral()
     maven {
@@ -45,6 +62,7 @@ legacyForge {
     runs {
         client {
             client()
+            sourceSet = sourceSets.client
         }
         server {
             server()
@@ -59,9 +77,18 @@ legacyForge {
     }
 }
 
+mixin {
+    add sourceSets.main, 'ae2emi.refmap.json'
+    config 'ae2emi.mixins.json'
+}
+
 dependencies {
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
     modImplementation "appeng:appliedenergistics2-forge:${ae2_version}"
-    modImplementation "dev.emi:emi-forge:${emi_version}+${minecraft_version}"
+    modImplementation "org.appliedenergistics:guideme:${guideme_version}"
+    modCompileOnly "dev.emi:emi-forge:${emi_version}+${minecraft_version}"
+    modClientLocalRuntime "dev.emi:emi-forge:${emi_version}+${minecraft_version}"
 }
 
 tasks.named('processResources', ProcessResources).configure {
@@ -86,6 +113,7 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('jar', Jar).configure {
+    manifest.attributes 'MixinConfigs': 'ae2emi.mixins.json'
     from('LICENSE.txt') {
         rename { "LICENSE_${archives_base_name}.txt" }
     }

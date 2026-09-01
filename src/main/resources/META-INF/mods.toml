@@ -38,4 +38,4 @@ modId="emi"
 mandatory=true
 versionRange="[${emi_version},1.2)"
 ordering="AFTER"
-side="BOTH"
+side="CLIENT"
