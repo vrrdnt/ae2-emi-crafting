@@ -53,7 +53,13 @@ The Gradle wrapper provisions the build toolchains. The resulting runtime JAR ta
 ./gradlew build
 ```
 
-Artifacts are written to `build/libs/`. The GitHub workflow builds every push and pull request targeting `forge/1.20.1`; tags beginning with `v` publish the runtime JAR to a GitHub Release.
+Artifacts are written to `build/libs/`.
+
+The GitHub workflow builds every push and pull request targeting `forge/1.20.1`. Every successful branch push publishes its head commit's runtime JAR to a new GitHub Release; pull requests only upload an Actions artifact. Manually running the workflow on `forge/1.20.1` also publishes a release. A push containing multiple commits produces one release for the head commit.
+
+Branch builds automatically add the workflow run number to the patch component of `mod_version`. For example, base version `0.1.0` and run number `3` produce version `0.1.3`, tag `v0.1.3`, and JAR `ae2emi-forge-0.1.3.jar`. The same version is embedded in the mod metadata. Version numbers can have gaps because pull requests, failed builds, and manually tagged builds also consume run numbers. Re-running an existing run reuses its version and tag, preserving already-published JARs and retrying any missing upload. No version-bump commit or manually pushed tag is needed.
+
+Tags beginning with `v` still publish explicit versions (for example, `v0.2.0` builds version `0.2.0`). Reserve automatic versions for the workflow; it refuses to overwrite a tag pointing to a different commit. To start a new major/minor release line, update `mod_version` in `gradle.properties`; its patch component remains the offset added to the workflow run number.
 
 ## Fork attribution and license
 

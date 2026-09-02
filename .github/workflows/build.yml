@@ -22,6 +22,29 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            base_version=$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')
+            if [[ ! "$base_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+              echo "::error::mod_version must be a major.minor.patch version"
+              exit 1
+            fi
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+            patch="${BASH_REMATCH[3]}"
+            version="$major.$minor.$((patch + GITHUB_RUN_NUMBER))"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "Building version $version"
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
@@ -43,12 +66,9 @@ jobs:
 
       - name: Build
         shell: bash
-        run: |
-          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            ./gradlew build "-Pmod_version=${GITHUB_REF_NAME#v}"
-          else
-            ./gradlew build
-          fi
+        env:
+          MOD_VERSION: ${{ steps.version.outputs.version }}
+        run: ./gradlew build "-Pmod_version=$MOD_VERSION"
 
       - name: Stage runtime JAR
         shell: bash
@@ -64,17 +84,36 @@ jobs:
           path: staging/*.jar
           if-no-files-found: error
 
-      - name: Publish tagged GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish GitHub Release
+        if: >-
+          (github.event_name == 'push' &&
+            (github.ref == 'refs/heads/forge/1.20.1' || startsWith(github.ref, 'refs/tags/v'))) ||
+          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/forge/1.20.1')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" staging/*.jar --clobber
+          # Never replace an unrelated release if a manually created tag collides.
+          git fetch --tags origin
+          tagged_commit=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}" 2>/dev/null || true)
+          if [[ -n "$tagged_commit" && "$tagged_commit" != "$(git rev-parse HEAD)" ]]; then
+            echo "::error::Tag $RELEASE_TAG already points to a different commit"
+            exit 1
+          fi
+          if assets=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' 2>/dev/null); then
+            # Retries preserve published assets and repair an incomplete upload.
+            for jar in staging/*.jar; do
+              if ! grep -Fxq "$(basename "$jar")" <<< "$assets"; then
+                gh release upload "$RELEASE_TAG" "$jar"
+              fi
+            done
+            if [[ "$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft')" == "true" ]]; then
+              gh release edit "$RELEASE_TAG" --draft=false
+            fi
           else
-            gh release create "$GITHUB_REF_NAME" staging/*.jar \
-              --verify-tag \
+            gh release create "$RELEASE_TAG" staging/*.jar \
+              --target "$GITHUB_SHA" \
               --generate-notes \
-              --title "$GITHUB_REF_NAME"
+              --title "$RELEASE_TAG"
           fi
