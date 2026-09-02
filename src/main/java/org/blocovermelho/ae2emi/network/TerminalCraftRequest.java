@@ -185,7 +185,12 @@ public record TerminalCraftRequest(int menuId, Destination destination, int amou
 
     private static void craftToCursor(
             CraftingTermSlot output, CraftingTermMenu menu, ServerPlayer player, int batches) {
+        ItemStack requestedOutput = output.getItem().copy();
         for (int batch = 0; batch < batches; batch++) {
+            // Exhausting an ingredient can leave a different valid recipe in the grid.
+            if (!ItemStack.matches(requestedOutput, output.getItem())) {
+                return;
+            }
             ItemStack before = menu.getCarried().copy();
             output.doClick(InventoryAction.CRAFT_ITEM, player);
             if (ItemStack.matches(before, menu.getCarried())) {
@@ -197,9 +202,13 @@ public record TerminalCraftRequest(int menuId, Destination destination, int amou
     private static void craftToInventory(
             CraftingTermSlot output, CraftingTermMenu menu, ServerPlayer player, int batches) {
         var playerInventory = new PlayerInternalInventory(player.getInventory());
+        ItemStack requestedOutput = output.getItem().copy();
 
         for (int batch = 0; batch < batches; batch++) {
             ItemStack expected = output.getItem().copy();
+            if (!ItemStack.matches(requestedOutput, expected)) {
+                return;
+            }
             if (expected.isEmpty() || !playerInventory.simulateAdd(expected).isEmpty()) {
                 return;
             }

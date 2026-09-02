@@ -37,6 +37,8 @@ EMI remains a client-side dependency, but **AE2 EMI Crafting must be installed o
 
 Use EMI's configured sidebar actions for craft one, craft all, craft to cursor, and craft to inventory. No additional key bindings are added by this mod.
 
+Synthetic favorites can be partially crafted: if a favorite requests 16 batches but the ME network can supply only three, **craft all to inventory** (such as `C`, when bound to that action) can craft those three. The requested amount remains the limit, and crafting stops when ingredients run out, the destination is full, or the grid's output changes. At least one complete batch must be available to start; this does not schedule AE2 autocrafting for missing ingredients.
+
 A plain recipe `+` click fills empty ingredient slots with one item and preserves matching stacks already in the grid, following AE2's normal behavior. Shift-clicking `+` bulk-fills the grid, balancing identical ingredients across their repeated recipe slots. For example, nine glass blocks across three glass slots become `3 / 3 / 3`, not `7 / 1 / 1`. Extra items that cannot fill another complete set of those slots remain in storage. Existing items are preserved and rebalanced, so an indivisible remainder already in the grid can leave counts one apart. Different ingredients (including non-stackable tools) have independent stack limits and availability.
 
 ## Scope and tradeoffs
@@ -55,7 +57,7 @@ The Gradle wrapper provisions the build toolchains. The resulting runtime JAR ta
 ./gradlew build
 ```
 
-The build also runs regression tests for balanced ingredient allocation, stack limits, partial extraction, and item conservation. To run just the tests, use `./gradlew test`.
+The build also runs regression tests for balanced ingredient allocation, stack limits, partial extraction, and item conservation, plus compiled-code contract checks for the one-batch craftability gate, requested-amount forwarding, and output-change guards. These checks do not replace in-game integration testing. To run just the tests, use `./gradlew test`.
 
 Artifacts are written to `build/libs/`.
 

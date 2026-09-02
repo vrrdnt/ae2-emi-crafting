@@ -55,7 +55,7 @@ public abstract class AbstractRecipeHandlerMixin {
     }
 
     @Inject(method = "canCraft", at = @At("HEAD"), cancellable = true)
-    private void ae2emi$checkRequestedAmount(
+    private void ae2emi$checkAvailableBatch(
             EmiRecipe recipe,
             EmiCraftContext<?> context,
             CallbackInfoReturnable<Boolean> callback) {
@@ -64,8 +64,10 @@ public abstract class AbstractRecipeHandlerMixin {
             return;
         }
 
-        int amount = context.getAmount() == Integer.MAX_VALUE ? 1 : Math.max(context.getAmount(), 1);
-        callback.setReturnValue(context.getInventory().canCraft(recipe, amount));
+        // Synthetic favorites turn "craft all" into a finite batch count. That count is
+        // an upper bound, not a requirement: EMI allows partially craftable favorites.
+        // Check one batch here; the server stops at the request limit or when supplies run out.
+        callback.setReturnValue(context.getInventory().canCraft(recipe));
     }
 
     @Inject(method = "craft", at = @At("RETURN"))
