@@ -1,7 +1,9 @@
 package org.blocovermelho.ae2emi.network;
 
+import java.util.ArrayList;
 import java.util.function.Supplier;
 
+import appeng.api.config.Actionable;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.storage.StorageHelper;
@@ -74,7 +76,9 @@ public record TerminalCraftRequest(int menuId, Destination destination, int amou
         var energy = grid.getEnergyService();
         var viewCellFilter = ViewCellItem.createItemFilter(menu.getViewCells());
         InternalInventory matrix = menu.getCraftingMatrix();
-        boolean changed = false;
+        var slots = new ArrayList<BalancedGridFiller.Slot<AEItemKey>>();
+        var matrixSlots = new ArrayList<Integer>();
+        var templates = new ArrayList<ItemStack>();
 
         for (int slot = 0; slot < matrix.size(); slot++) {
             ItemStack stack = matrix.getStackInSlot(slot);
@@ -82,29 +86,40 @@ public record TerminalCraftRequest(int menuId, Destination destination, int amou
                 continue;
             }
 
-            int target = batches == Integer.MAX_VALUE
-                    ? stack.getMaxStackSize()
-                    : Math.min(batches, stack.getMaxStackSize());
-            int needed = target - stack.getCount();
-            if (needed <= 0) {
-                continue;
-            }
-
+            int limit = Math.min(stack.getMaxStackSize(), matrix.getSlotLimit(slot));
             AEItemKey key = AEItemKey.of(stack);
-            if (key != null && (viewCellFilter == null || viewCellFilter.isListed(key))) {
-                long extracted = StorageHelper.poweredExtraction(
-                        energy, storage, key, needed, menu.getActionSource());
-                int extractedItems = (int) Math.min(extracted, needed);
-                stack.grow(extractedItems);
-                needed -= extractedItems;
+            if (key == null || stack.getCount() > limit) {
+                // Leave an unsupported/overfull matrix untouched rather than risking item loss.
+                return;
             }
+            slots.add(new BalancedGridFiller.Slot<>(key, stack.getCount(), limit));
+            matrixSlots.add(slot);
+            templates.add(stack.copy());
+        }
 
-            if (needed > 0) {
-                takeMatchingItemsFromPlayer(menu, player, stack, needed);
+        int[] counts = BalancedGridFiller.fill(slots, batches,
+                (key, requested, simulate) -> {
+                    int extracted = 0;
+                    if (viewCellFilter == null || viewCellFilter.isListed(key)) {
+                        extracted = (int) StorageHelper.poweredExtraction(
+                                energy, storage, key, requested, menu.getActionSource(),
+                                simulate ? Actionable.SIMULATE : Actionable.MODULATE);
+                    }
+                    if (extracted < requested) {
+                        extracted += takeMatchingItemsFromPlayer(
+                                menu, player, key, requested - extracted, simulate);
+                    }
+                    return extracted;
+                });
+
+        boolean changed = false;
+        for (int i = 0; i < counts.length; i++) {
+            ItemStack stack = templates.get(i);
+            if (stack.getCount() != counts[i]) {
+                stack.setCount(counts[i]);
+                matrix.setItemDirect(matrixSlots.get(i), stack);
+                changed = true;
             }
-
-            matrix.setItemDirect(slot, stack);
-            changed = true;
         }
 
         if (changed) {
@@ -113,8 +128,8 @@ public record TerminalCraftRequest(int menuId, Destination destination, int amou
         }
     }
 
-    private static void takeMatchingItemsFromPlayer(
-            CraftingTermMenu menu, ServerPlayer player, ItemStack target, int requested) {
+    private static int takeMatchingItemsFromPlayer(
+            CraftingTermMenu menu, ServerPlayer player, AEItemKey key, int requested, boolean simulate) {
         var playerInventory = player.getInventory();
         int remaining = requested;
 
@@ -124,15 +139,17 @@ public record TerminalCraftRequest(int menuId, Destination destination, int amou
             }
 
             ItemStack source = playerInventory.items.get(slot);
-            if (!ItemStack.isSameItemSameTags(source, target)) {
+            if (!key.matches(source)) {
                 continue;
             }
 
             int moved = Math.min(source.getCount(), remaining);
-            source.shrink(moved);
-            target.grow(moved);
+            if (!simulate) {
+                source.shrink(moved);
+            }
             remaining -= moved;
         }
+        return requested - remaining;
     }
 
     private static void craftOutput(

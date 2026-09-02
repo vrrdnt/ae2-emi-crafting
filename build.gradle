@@ -85,10 +85,18 @@ mixin {
 dependencies {
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
     modImplementation "appeng:appliedenergistics2-forge:${ae2_version}"
     modImplementation "org.appliedenergistics:guideme:${guideme_version}"
     modCompileOnly "dev.emi:emi-forge:${emi_version}+${minecraft_version}"
     modClientLocalRuntime "dev.emi:emi-forge:${emi_version}+${minecraft_version}"
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
 }
 
 tasks.named('processResources', ProcessResources).configure {

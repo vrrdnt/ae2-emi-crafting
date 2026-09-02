@@ -37,6 +37,8 @@ EMI remains a client-side dependency, but **AE2 EMI Crafting must be installed o
 
 Use EMI's configured sidebar actions for craft one, craft all, craft to cursor, and craft to inventory. No additional key bindings are added by this mod.
 
+A plain recipe `+` click fills empty ingredient slots with one item and preserves matching stacks already in the grid, following AE2's normal behavior. Shift-clicking `+` bulk-fills the grid, balancing identical ingredients across their repeated recipe slots. For example, nine glass blocks across three glass slots become `3 / 3 / 3`, not `7 / 1 / 1`. Extra items that cannot fill another complete set of those slots remain in storage. Existing items are preserved and rebalanced, so an indivisible remainder already in the grid can leave counts one apart. Different ingredients (including non-stackable tools) have independent stack limits and availability.
+
 ## Scope and tradeoffs
 
 Installing this mod opts crafting terminals into full stored-network exposure to EMI, even when AE2's `exposeInventoryToEmi` option is disabled. This is necessary for synthetic favorites to see ME-stored ingredients, but very large networks may make EMI's craftable calculations more expensive.
@@ -52,6 +54,8 @@ The Gradle wrapper provisions the build toolchains. The resulting runtime JAR ta
 ```shell
 ./gradlew build
 ```
+
+The build also runs regression tests for balanced ingredient allocation, stack limits, partial extraction, and item conservation. To run just the tests, use `./gradlew test`.
 
 Artifacts are written to `build/libs/`.
 
