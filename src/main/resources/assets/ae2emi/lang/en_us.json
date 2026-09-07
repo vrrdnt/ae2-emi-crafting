@@ -1,0 +1,6 @@
+{
+  "message.ae2emi.machine_transfer.already_present": "The recipe items are already in your inventory.",
+  "message.ae2emi.machine_transfer.full": "There is not enough room in your inventory for the recipe items.",
+  "message.ae2emi.machine_transfer.missing": "The AE2 terminal cannot supply every required recipe item.",
+  "message.ae2emi.machine_transfer.success": "Moved the recipe items to your inventory."
+}

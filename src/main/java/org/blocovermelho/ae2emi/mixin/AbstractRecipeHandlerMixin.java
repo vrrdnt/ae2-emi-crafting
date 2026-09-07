@@ -12,6 +12,7 @@ import dev.emi.emi.api.recipe.EmiRecipe;
 import dev.emi.emi.api.recipe.handler.EmiCraftContext;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import org.blocovermelho.ae2emi.client.MachineRecipeTransfer;
 import org.blocovermelho.ae2emi.network.Ae2EmiNetwork;
 import org.blocovermelho.ae2emi.network.TerminalCraftRequest;
 import org.spongepowered.asm.mixin.Mixin;
@@ -59,8 +60,16 @@ public abstract class AbstractRecipeHandlerMixin {
             EmiRecipe recipe,
             EmiCraftContext<?> context,
             CallbackInfoReturnable<Boolean> callback) {
-        if (!(context.getScreenHandler() instanceof CraftingTermMenu)
-                || context.getType() != EmiCraftContext.Type.CRAFTABLE) {
+        if (!(context.getScreenHandler() instanceof CraftingTermMenu menu)) {
+            return;
+        }
+
+        if (MachineRecipeTransfer.isSupported(recipe)) {
+            callback.setReturnValue(
+                    MachineRecipeTransfer.createRequest(recipe, context.getInventory(), menu.getCarried()).isPresent());
+            return;
+        }
+        if (context.getType() != EmiCraftContext.Type.CRAFTABLE) {
             return;
         }
 

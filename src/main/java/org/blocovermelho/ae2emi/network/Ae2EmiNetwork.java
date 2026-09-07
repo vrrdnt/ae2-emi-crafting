@@ -8,7 +8,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.blocovermelho.ae2emi.Ae2EmiMod;
 
 public final class Ae2EmiNetwork {
-    private static final String PROTOCOL_VERSION = "1";
+    private static final String PROTOCOL_VERSION = "2";
 
     private static final SimpleChannel CHANNEL = NetworkRegistry.ChannelBuilder
             .named(ResourceLocation.fromNamespaceAndPath(Ae2EmiMod.MOD_ID, "main"))
@@ -26,9 +26,18 @@ public final class Ae2EmiNetwork {
                 .decoder(TerminalCraftRequest::decode)
                 .consumerMainThread(TerminalCraftRequest::handle)
                 .add();
+        CHANNEL.messageBuilder(TerminalIngredientRequest.class, 1, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(TerminalIngredientRequest::encode)
+                .decoder(TerminalIngredientRequest::decode)
+                .consumerMainThread(TerminalIngredientRequest::handle)
+                .add();
     }
 
     public static void sendToServer(TerminalCraftRequest request) {
+        CHANNEL.sendToServer(request);
+    }
+
+    public static void sendToServer(TerminalIngredientRequest request) {
         CHANNEL.sendToServer(request);
     }
 }

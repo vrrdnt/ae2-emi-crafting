@@ -1,6 +1,6 @@
 # AE2 EMI Crafting — Forge 1.20.1
 
-This is a downstream Forge port of [blocovermelho/ae2-emi-crafting](https://github.com/blocovermelho/ae2-emi-crafting). It adds EMI synthetic-favorite crafting controls to Applied Energistics 2 crafting terminals, with Monifactory as the primary compatibility target.
+This is a downstream Forge port of [blocovermelho/ae2-emi-crafting](https://github.com/blocovermelho/ae2-emi-crafting). It adds EMI synthetic-favorite crafting and machine-recipe item transfer controls to Applied Energistics 2 crafting terminals, with Monifactory as the primary compatibility target.
 
 The port patches the EMI integration already present in Monifactory's AE2 build. It does not register a second set of AE2 recipes or replace AE2's terminal UI.
 
@@ -24,6 +24,8 @@ While an AE2 crafting terminal is open, the mod:
 - honors EMI's requested batch count for **craft one** and **craft all**;
 - supports crafting directly to the cursor or player inventory;
 - fills the crafting grid with the requested number of batches when no output destination is requested;
+- withdraws one complete batch of item inputs for non-crafting recipes, such as a Laser Engraver recipe, into the player inventory;
+- includes item catalysts such as non-consumable lenses while leaving fluid inputs untouched;
 - applies to crafting-terminal subclasses, including AE2 wireless crafting terminals that use the same handler; and
 - validates and performs all inventory extraction and crafting on the server.
 
@@ -37,6 +39,10 @@ EMI remains a client-side dependency, but **AE2 EMI Crafting must be installed o
 
 Use EMI's configured sidebar actions for craft one, craft all, craft to cursor, and craft to inventory. No additional key bindings are added by this mod.
 
+For a non-crafting machine recipe, invoke any of those EMI craft/transfer actions while its synthetic favorite is shown and an AE2 crafting terminal is open. The action always prepares **one recipe batch in the player inventory**, regardless of the selected output destination. Items already in the inventory count toward the requirement, so only the shortfall is moved from the crafting grid, cursor, or ME storage. Tag alternatives are resolved to a concrete stored item, and repeated requirements are combined.
+
+The server preflights every requested item and the destination capacity before changing anything. If a complete item batch is unavailable or will not fit, nothing is withdrawn. Item catalysts exposed by EMI, including non-consumable machine tools or lenses, are included. Fluid requirements are intentionally ignored because this action does not move containers or interact with a machine's fluid tanks.
+
 Synthetic favorites can be partially crafted: if a favorite requests 16 batches but the ME network can supply only three, **craft all to inventory** (such as `C`, when bound to that action) can craft those three. The requested amount remains the limit, and crafting stops when ingredients run out, the destination is full, or the grid's output changes. At least one complete batch must be available to start; this does not schedule AE2 autocrafting for missing ingredients.
 
 A plain recipe `+` click fills empty ingredient slots with one item and preserves matching stacks already in the grid, following AE2's normal behavior. Shift-clicking `+` bulk-fills the grid, balancing identical ingredients across their repeated recipe slots. For example, nine glass blocks across three glass slots become `3 / 3 / 3`, not `7 / 1 / 1`. Extra items that cannot fill another complete set of those slots remain in storage. Existing items are preserved and rebalanced, so an indivisible remainder already in the grid can leave counts one apart. Different ingredients (including non-stackable tools) have independent stack limits and availability.
@@ -45,7 +51,7 @@ A plain recipe `+` click fills empty ingredient slots with one item and preserve
 
 Installing this mod opts crafting terminals into full stored-network exposure to EMI, even when AE2's `exposeInventoryToEmi` option is disabled. This is necessary for synthetic favorites to see ME-stored ingredients, but very large networks may make EMI's craftable calculations more expensive.
 
-Only items that are actually stored in the ME network, crafting grid, cursor, or player inventory count as available. An item that is merely autocraftable from an AE2 pattern is not advertised to EMI as if it already existed, and this mod does not automatically schedule those missing ingredients. A single **craft all** action is bounded to one crafting-grid stack (at most 64 recipe batches, and less for smaller stack sizes or output constraints).
+Only items that are actually stored in the ME network, crafting grid, cursor, or player inventory count as available. An item that is merely autocraftable from an AE2 pattern is not advertised to EMI as if it already existed, and this mod does not automatically schedule those missing ingredients. A single **craft all** action is bounded to one crafting-grid stack (at most 64 recipe batches, and less for smaller stack sizes or output constraints). Machine-recipe transfer only prepares the exposed item requirements in the player's inventory; it does not insert them into a machine, move fluids, or start processing.
 
 Pattern-terminal virtual ingredient encoding from [AE2 issue #8074](https://github.com/AppliedEnergistics/Applied-Energistics-2/issues/8074) is outside this Forge port's current scope.
 
@@ -57,7 +63,7 @@ The Gradle wrapper provisions the build toolchains. The resulting runtime JAR ta
 ./gradlew build
 ```
 
-The build also runs regression tests for balanced ingredient allocation, stack limits, partial extraction, and item conservation, plus compiled-code contract checks for the one-batch craftability gate, requested-amount forwarding, and output-change guards. These checks do not replace in-game integration testing. To run just the tests, use `./gradlew test`.
+The build also runs regression tests for balanced crafting-grid allocation, machine-recipe item selection, stack limits, partial extraction, and item conservation, plus compiled-code contract checks for crafting actions, machine-transfer packet registration, requested-amount forwarding, and output-change guards. These checks do not replace in-game integration testing. To run just the tests, use `./gradlew test`.
 
 Artifacts are written to `build/libs/`.
 

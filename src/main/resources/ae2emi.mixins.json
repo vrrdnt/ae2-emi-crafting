@@ -6,7 +6,8 @@
   "refmap": "ae2emi.refmap.json",
   "mixins": [],
   "client": [
-    "AbstractRecipeHandlerMixin"
+    "AbstractRecipeHandlerMixin",
+    "UseCraftingRecipeHandlerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
