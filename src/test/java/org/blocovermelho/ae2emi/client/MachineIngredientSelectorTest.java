@@ -5,10 +5,39 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 import org.junit.jupiter.api.Test;
 
 class MachineIngredientSelectorTest {
+    @Test
+    void selectionPrefersMostSpareStockAndPreservesAlternativeOrderOnTies() {
+        var result = MachineIngredientSelector.select(
+                List.of(List.of(item("copper", 2), item("tin", 2), item("iron", 2))),
+                key -> key.equals("copper") ? 3 : 8,
+                64).orElseThrow();
+
+        assertEquals(List.of(new MachineIngredientSelector.Selection<>("tin", 2)), result);
+    }
+
+    @Test
+    void batchSearchReadsEachItemsAvailabilityOnlyOnce() {
+        var reads = new HashMap<String, Integer>();
+        var result = MachineIngredientSelector.selectMaximum(
+                List.of(input("plate", 2), input("plate", 1), catalyst("lens", 1)),
+                key -> {
+                    reads.merge(key, 1, Integer::sum);
+                    return key.equals("plate") ? 30 : 1;
+                },
+                Integer.MAX_VALUE,
+                64).orElseThrow();
+
+        assertEquals(10, result.batches());
+        assertEquals(Map.of("plate", 1, "lens", 1), reads);
+        assertTrue(result.selections().contains(new MachineIngredientSelector.Selection<>("plate", 30)));
+        assertTrue(result.selections().contains(new MachineIngredientSelector.Selection<>("lens", 1)));
+    }
+
     private static MachineIngredientSelector.Alternative<String> item(String key, long amount) {
         return new MachineIngredientSelector.Alternative<>(key, amount);
     }

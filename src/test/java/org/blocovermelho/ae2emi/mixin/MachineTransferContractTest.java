@@ -62,8 +62,8 @@ class MachineTransferContractTest {
 
     @Test
     void requestUsesTheIngredientCountForTagAlternatives() throws IOException {
-        MethodNode createRequest = method(TRANSFER, "createRequest");
-        assertTrue(calls(createRequest, EMI_INGREDIENT, "getAmount"));
+        MethodNode ingredients = method(TRANSFER, "addItemIngredients");
+        assertTrue(calls(ingredients, EMI_INGREDIENT, "getAmount"));
     }
 
     @Test

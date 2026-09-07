@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.ToLongFunction;
 
@@ -41,16 +40,18 @@ public final class MachineIngredientSelector {
 
         var remaining = new ArrayList<>(ingredients);
         var available = new HashMap<K, Long>();
-        var used = new HashMap<K, Long>();
         var selected = new LinkedHashMap<K, Long>();
         long total = 0;
 
         while (!remaining.isEmpty()) {
             int bestIngredient = -1;
-            List<Alternative<K>> bestCandidates = List.of();
+            int bestCandidateCount = Integer.MAX_VALUE;
+            Alternative<K> choice = null;
 
             for (int ingredientIndex = 0; ingredientIndex < remaining.size(); ingredientIndex++) {
-                var candidates = new ArrayList<Alternative<K>>();
+                int candidateCount = 0;
+                Alternative<K> ingredientChoice = null;
+                long bestSpare = Long.MIN_VALUE;
                 for (var alternative : remaining.get(ingredientIndex)) {
                     if (alternative.key() == null || alternative.amount() <= 0 || alternative.amount() > maxTotal) {
                         continue;
@@ -58,30 +59,23 @@ public final class MachineIngredientSelector {
 
                     long inInventory = available.computeIfAbsent(
                             alternative.key(), key -> Math.max(0, availability.applyAsLong(key)));
-                    long alreadyUsed = used.getOrDefault(alternative.key(), 0L);
-                    if (inInventory - alreadyUsed >= alternative.amount()) {
-                        candidates.add(alternative);
+                    long spare = inInventory - selected.getOrDefault(alternative.key(), 0L) - alternative.amount();
+                    if (spare >= 0) {
+                        candidateCount++;
+                        if (spare > bestSpare) {
+                            ingredientChoice = alternative;
+                            bestSpare = spare;
+                        }
                     }
                 }
 
-                if (candidates.isEmpty()) {
+                if (candidateCount == 0) {
                     return Optional.empty();
                 }
-                if (bestIngredient < 0 || candidates.size() < bestCandidates.size()) {
+                if (candidateCount < bestCandidateCount) {
                     bestIngredient = ingredientIndex;
-                    bestCandidates = candidates;
-                }
-            }
-
-            Alternative<K> choice = bestCandidates.get(0);
-            long bestSpare = Long.MIN_VALUE;
-            for (var candidate : bestCandidates) {
-                long spare = available.get(candidate.key())
-                        - used.getOrDefault(candidate.key(), 0L)
-                        - candidate.amount();
-                if (spare > bestSpare) {
-                    choice = candidate;
-                    bestSpare = spare;
+                    bestCandidateCount = candidateCount;
+                    choice = ingredientChoice;
                 }
             }
 
@@ -89,7 +83,6 @@ public final class MachineIngredientSelector {
                 return Optional.empty();
             }
             total += choice.amount();
-            used.merge(choice.key(), choice.amount(), Long::sum);
             selected.merge(choice.key(), choice.amount(), Long::sum);
             remaining.remove(bestIngredient);
         }

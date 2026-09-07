@@ -13,9 +13,6 @@ import dev.emi.emi.api.stack.EmiStack;
 import org.blocovermelho.ae2emi.network.TerminalIngredientRequest;
 
 public final class MachineRecipeTransfer {
-    private record ItemIngredient(EmiIngredient ingredient, boolean catalyst) {
-    }
-
     private MachineRecipeTransfer() {
     }
 
@@ -31,14 +28,8 @@ public final class MachineRecipeTransfer {
         }
 
         var ingredients = new ArrayList<MachineIngredientSelector.Ingredient<EmiStack>>();
-        for (var itemIngredient : getItemIngredients(recipe)) {
-            long requiredAmount = Math.max(1, itemIngredient.ingredient.getAmount());
-            var alternatives = itemIngredient.ingredient.getEmiStacks().stream()
-                    .filter(stack -> !stack.getItemStack().isEmpty())
-                    .map(stack -> new MachineIngredientSelector.Alternative<>(stack, requiredAmount))
-                    .toList();
-            ingredients.add(new MachineIngredientSelector.Ingredient<>(alternatives, itemIngredient.catalyst));
-        }
+        addItemIngredients(ingredients, recipe.getInputs(), false);
+        addItemIngredients(ingredients, recipe.getCatalysts(), true);
 
         return MachineIngredientSelector.selectMaximum(
                         ingredients,
@@ -55,19 +46,22 @@ public final class MachineRecipeTransfer {
                 .filter(requirements -> requirements.size() <= TerminalIngredientRequest.MAX_REQUIREMENTS);
     }
 
-    private static List<ItemIngredient> getItemIngredients(EmiRecipe recipe) {
-        var result = new ArrayList<ItemIngredient>();
-        addItemIngredients(result, recipe.getInputs(), false);
-        addItemIngredients(result, recipe.getCatalysts(), true);
-        return result;
-    }
-
     private static void addItemIngredients(
-            List<ItemIngredient> result, List<EmiIngredient> ingredients, boolean catalyst) {
+            List<MachineIngredientSelector.Ingredient<EmiStack>> result,
+            List<EmiIngredient> ingredients, boolean catalyst) {
         for (var ingredient : ingredients) {
-            if (!ingredient.isEmpty()
-                    && ingredient.getEmiStacks().stream().anyMatch(stack -> !stack.getItemStack().isEmpty())) {
-                result.add(new ItemIngredient(ingredient, catalyst));
+            if (ingredient.isEmpty()) {
+                continue;
+            }
+            long requiredAmount = Math.max(1, ingredient.getAmount());
+            var alternatives = new ArrayList<MachineIngredientSelector.Alternative<EmiStack>>();
+            for (var stack : ingredient.getEmiStacks()) {
+                if (!stack.getItemStack().isEmpty()) {
+                    alternatives.add(new MachineIngredientSelector.Alternative<>(stack, requiredAmount));
+                }
+            }
+            if (!alternatives.isEmpty()) {
+                result.add(new MachineIngredientSelector.Ingredient<>(alternatives, catalyst));
             }
         }
     }
