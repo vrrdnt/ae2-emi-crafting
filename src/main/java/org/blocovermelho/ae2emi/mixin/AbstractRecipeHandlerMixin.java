@@ -9,6 +9,7 @@ import appeng.menu.SlotSemantics;
 import appeng.menu.me.items.CraftingTermMenu;
 import dev.emi.emi.api.recipe.EmiPlayerInventory;
 import dev.emi.emi.api.recipe.EmiRecipe;
+import dev.emi.emi.api.recipe.VanillaEmiRecipeCategories;
 import dev.emi.emi.api.recipe.handler.EmiCraftContext;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -60,13 +61,21 @@ public abstract class AbstractRecipeHandlerMixin {
             EmiRecipe recipe,
             EmiCraftContext<?> context,
             CallbackInfoReturnable<Boolean> callback) {
-        if (!(context.getScreenHandler() instanceof CraftingTermMenu menu)) {
+        if (!(context.getScreenHandler() instanceof CraftingTermMenu)) {
+            return;
+        }
+
+        if (context.getDestination() != EmiCraftContext.Destination.INVENTORY
+                && !VanillaEmiRecipeCategories.CRAFTING.equals(recipe.getCategory())) {
+            // EMI uses this destination-less context for its frequent craftable-sidebar scan.
+            // Machine transfers always target the inventory, so reject that path before
+            // inspecting recipe ingredients or resolving large tags and alternatives.
+            callback.setReturnValue(false);
             return;
         }
 
         if (MachineRecipeTransfer.isSupported(recipe)) {
-            callback.setReturnValue(
-                    MachineRecipeTransfer.createRequest(recipe, context.getInventory(), menu.getCarried()).isPresent());
+            callback.setReturnValue(MachineRecipeTransfer.createRequest(recipe, context.getInventory(), 1).isPresent());
             return;
         }
         if (context.getType() != EmiCraftContext.Type.CRAFTABLE) {

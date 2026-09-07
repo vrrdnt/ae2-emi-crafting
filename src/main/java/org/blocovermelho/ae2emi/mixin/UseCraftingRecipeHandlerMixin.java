@@ -28,11 +28,12 @@ public abstract class UseCraftingRecipeHandlerMixin {
             EmiCraftContext<?> context,
             CallbackInfoReturnable<Boolean> callback) {
         if (!(context.getScreenHandler() instanceof CraftingTermMenu menu)
+                || context.getDestination() != EmiCraftContext.Destination.INVENTORY
                 || !MachineRecipeTransfer.isSupported(recipe)) {
             return;
         }
 
-        var requirements = MachineRecipeTransfer.createRequest(recipe, context.getInventory(), menu.getCarried());
+        var requirements = MachineRecipeTransfer.createRequest(recipe, context.getInventory(), context.getAmount());
         if (requirements.isEmpty()) {
             callback.setReturnValue(false);
             return;

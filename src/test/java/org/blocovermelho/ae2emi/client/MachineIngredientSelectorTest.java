@@ -13,6 +13,14 @@ class MachineIngredientSelectorTest {
         return new MachineIngredientSelector.Alternative<>(key, amount);
     }
 
+    private static MachineIngredientSelector.Ingredient<String> input(String key, long amount) {
+        return new MachineIngredientSelector.Ingredient<>(List.of(item(key, amount)), false);
+    }
+
+    private static MachineIngredientSelector.Ingredient<String> catalyst(String key, long amount) {
+        return new MachineIngredientSelector.Ingredient<>(List.of(item(key, amount)), true);
+    }
+
     @Test
     void repeatedIngredientsAreAggregatedIntoOneWithdrawal() {
         var result = MachineIngredientSelector.select(
@@ -67,5 +75,57 @@ class MachineIngredientSelectorTest {
                 64);
 
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void craftAllSelectsEveryRequestedBatch() {
+        var result = MachineIngredientSelector.selectMaximum(
+                List.of(input("plate", 2)),
+                key -> 10,
+                4,
+                64).orElseThrow();
+
+        assertEquals(4, result.batches());
+        assertEquals(List.of(new MachineIngredientSelector.Selection<>("plate", 8)), result.selections());
+    }
+
+    @Test
+    void craftAllStopsAtTheLastCompleteAvailableBatch() {
+        var result = MachineIngredientSelector.selectMaximum(
+                List.of(input("plate", 2)),
+                key -> 7,
+                Integer.MAX_VALUE,
+                64).orElseThrow();
+
+        assertEquals(3, result.batches());
+        assertEquals(List.of(new MachineIngredientSelector.Selection<>("plate", 6)), result.selections());
+    }
+
+    @Test
+    void catalystsAreOnlyRequestedOnceForCraftAll() {
+        var result = MachineIngredientSelector.selectMaximum(
+                List.of(input("wafer", 1), catalyst("lens", 1)),
+                key -> key.equals("wafer") ? 5 : 1,
+                5,
+                64).orElseThrow();
+
+        assertEquals(5, result.batches());
+        assertEquals(
+                List.of(
+                        new MachineIngredientSelector.Selection<>("wafer", 5),
+                        new MachineIngredientSelector.Selection<>("lens", 1)),
+                result.selections());
+    }
+
+    @Test
+    void craftAllRespectsTheTransferItemLimit() {
+        var result = MachineIngredientSelector.selectMaximum(
+                List.of(input("dust", 1)),
+                key -> 100,
+                100,
+                4).orElseThrow();
+
+        assertEquals(4, result.batches());
+        assertEquals(List.of(new MachineIngredientSelector.Selection<>("dust", 4)), result.selections());
     }
 }

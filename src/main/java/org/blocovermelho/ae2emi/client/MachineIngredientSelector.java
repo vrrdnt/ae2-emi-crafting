@@ -13,7 +13,19 @@ public final class MachineIngredientSelector {
     public record Alternative<K>(K key, long amount) {
     }
 
+    public record Ingredient<K>(List<Alternative<K>> alternatives, boolean catalyst) {
+        public Ingredient {
+            alternatives = List.copyOf(alternatives);
+        }
+    }
+
     public record Selection<K>(K key, long amount) {
+    }
+
+    public record BatchSelection<K>(int batches, List<Selection<K>> selections) {
+        public BatchSelection {
+            selections = List.copyOf(selections);
+        }
     }
 
     private MachineIngredientSelector() {
@@ -85,5 +97,58 @@ public final class MachineIngredientSelector {
         return Optional.of(selected.entrySet().stream()
                 .map(entry -> new Selection<>(entry.getKey(), entry.getValue()))
                 .toList());
+    }
+
+    public static <K> Optional<BatchSelection<K>> selectMaximum(
+            List<Ingredient<K>> ingredients,
+            ToLongFunction<K> availability,
+            int requestedBatches,
+            long maxTotal) {
+        if (ingredients.isEmpty() || requestedBatches <= 0 || maxTotal <= 0) {
+            return Optional.empty();
+        }
+
+        int upperBound = (int) Math.min((long) requestedBatches, Math.min(maxTotal, Integer.MAX_VALUE));
+        var availabilityCache = new HashMap<K, Long>();
+        ToLongFunction<K> cachedAvailability = key -> availabilityCache.computeIfAbsent(
+                key, candidate -> Math.max(0, availability.applyAsLong(candidate)));
+
+        var best = selectScaled(ingredients, cachedAvailability, 1, maxTotal);
+        if (best.isEmpty()) {
+            return Optional.empty();
+        }
+
+        int lowerBound = 1;
+        while (lowerBound < upperBound) {
+            int candidateBatches = lowerBound + (upperBound - lowerBound + 1) / 2;
+            var candidate = selectScaled(ingredients, cachedAvailability, candidateBatches, maxTotal);
+            if (candidate.isPresent()) {
+                lowerBound = candidateBatches;
+                best = candidate;
+            } else {
+                upperBound = candidateBatches - 1;
+            }
+        }
+
+        return Optional.of(new BatchSelection<>(lowerBound, best.orElseThrow()));
+    }
+
+    private static <K> Optional<List<Selection<K>>> selectScaled(
+            List<Ingredient<K>> ingredients,
+            ToLongFunction<K> availability,
+            int batches,
+            long maxTotal) {
+        var scaled = new ArrayList<List<Alternative<K>>>(ingredients.size());
+        for (var ingredient : ingredients) {
+            long multiplier = ingredient.catalyst ? 1 : batches;
+            var alternatives = new ArrayList<Alternative<K>>(ingredient.alternatives.size());
+            for (var alternative : ingredient.alternatives) {
+                if (alternative.amount > 0 && alternative.amount <= maxTotal / multiplier) {
+                    alternatives.add(new Alternative<>(alternative.key, alternative.amount * multiplier));
+                }
+            }
+            scaled.add(alternatives);
+        }
+        return select(scaled, availability, maxTotal);
     }
 }
