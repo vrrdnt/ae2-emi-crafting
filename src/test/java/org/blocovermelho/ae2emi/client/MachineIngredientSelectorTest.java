@@ -2,14 +2,119 @@ package org.blocovermelho.ae2emi.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.time.Duration;
 
 import org.junit.jupiter.api.Test;
 
 class MachineIngredientSelectorTest {
+    @Test
+    void diodeShortfallReportsTheMissingItemsForTheFullOrder() {
+        var ingredients = List.of(input("wire", 4), input("dust", 1));
+        java.util.function.ToLongFunction<String> stock = key -> key.equals("wire") ? 8 : 1;
+        var plan = MachineIngredientSelector.selectMaximum(ingredients, stock, 64, 2304).orElseThrow();
+
+        assertEquals(1, plan.batches());
+        assertEquals(List.of(new MachineIngredientSelector.Selection<>("wire", 248),
+                        new MachineIngredientSelector.Selection<>("dust", 63)),
+                MachineIngredientSelector.shortfall(ingredients, stock, 64));
+    }
+
+    @Test
+    void missingCatalystIsReportedOnceAndBlocksCompleteBatches() {
+        var ingredients = List.of(input("wafer", 1), catalyst("lens", 1));
+        java.util.function.ToLongFunction<String> stock = key -> key.equals("wafer") ? 47 : 0;
+        assertTrue(MachineIngredientSelector.selectMaximum(ingredients, stock, 47, 2304).isEmpty());
+        assertEquals(List.of(new MachineIngredientSelector.Selection<>("lens", 1)),
+                MachineIngredientSelector.shortfall(ingredients, stock, 47));
+    }
+
+    @Test
+    void shortfallAggregatesRepeatedInputsWithoutDoubleCountingStock() {
+        var ingredients = List.of(input("plate", 2), input("plate", 1));
+        assertEquals(List.of(new MachineIngredientSelector.Selection<>("plate", 7)),
+                MachineIngredientSelector.shortfall(ingredients, key -> 5, 4));
+    }
+
+    @Test
+    void smallOverlappingRecipesMatchExhaustiveAllocation() {
+        for (int a = 1; a < 8; a++) {
+            for (int b = 1; b < 8; b++) {
+                for (int c = 1; c < 8; c++) {
+                    var recipe = List.of(alternatives(a), alternatives(b), alternatives(c));
+                    for (int inventory = 0; inventory < 27; inventory++) {
+                        int[] stock = {inventory % 3, inventory / 3 % 3, inventory / 9};
+                        boolean expected = allocate(recipe, stock.clone(), 0);
+                        var result = MachineIngredientSelector.select(recipe, key -> stock[key], 64);
+                        assertEquals(expected, result.isPresent(), () -> recipe + " / " + java.util.Arrays.toString(stock));
+                        if (result.isPresent()) {
+                            assertEquals(3, result.get().stream().mapToLong(MachineIngredientSelector.Selection::amount).sum());
+                            result.get().forEach(item -> assertTrue(item.amount() <= stock[item.key()]));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static List<MachineIngredientSelector.Alternative<Integer>> alternatives(int mask) {
+        var result = new ArrayList<MachineIngredientSelector.Alternative<Integer>>();
+        for (int key = 0; key < 3; key++) {
+            if ((mask & (1 << key)) != 0) {
+                result.add(new MachineIngredientSelector.Alternative<>(key, 1));
+            }
+        }
+        return result;
+    }
+
+    private static boolean allocate(List<List<MachineIngredientSelector.Alternative<Integer>>> recipe,
+            int[] stock, int slot) {
+        if (slot == recipe.size()) {
+            return true;
+        }
+        for (var item : recipe.get(slot)) {
+            if (stock[item.key()] > 0) {
+                stock[item.key()]--;
+                boolean found = allocate(recipe, stock, slot + 1);
+                stock[item.key()]++;
+                if (found) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Test
+    void impossibleHighlyOverlappingRecipeHasBoundedSearch() {
+        var alternatives = new ArrayList<MachineIngredientSelector.Alternative<Integer>>();
+        for (int key = 0; key < 19; key++) {
+            alternatives.add(new MachineIngredientSelector.Alternative<>(key, 1));
+        }
+        var recipe = java.util.Collections.nCopies(20, List.copyOf(alternatives));
+        assertTimeoutPreemptively(Duration.ofSeconds(5),
+                () -> assertTrue(MachineIngredientSelector.select(recipe, key -> 1, 64).isEmpty()));
+    }
+
+    @Test
+    void overlappingAlternativesCanReassignAnEarlierChoice() {
+        var result = MachineIngredientSelector.select(
+                List.of(List.of(item("a", 1), item("b", 1)),
+                        List.of(item("a", 1), item("c", 1)),
+                        List.of(item("a", 1), item("c", 1))),
+                key -> 1, 64).orElseThrow();
+
+        assertEquals(3, result.size());
+        assertTrue(result.contains(new MachineIngredientSelector.Selection<>("a", 1)));
+        assertTrue(result.contains(new MachineIngredientSelector.Selection<>("b", 1)));
+        assertTrue(result.contains(new MachineIngredientSelector.Selection<>("c", 1)));
+    }
+
     @Test
     void selectionPrefersMostSpareStockAndPreservesAlternativeOrderOnTies() {
         var result = MachineIngredientSelector.select(

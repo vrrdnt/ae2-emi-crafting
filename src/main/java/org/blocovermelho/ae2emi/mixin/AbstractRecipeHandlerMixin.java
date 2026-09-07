@@ -75,7 +75,8 @@ public abstract class AbstractRecipeHandlerMixin {
         }
 
         if (MachineRecipeTransfer.isSupported(recipe)) {
-            callback.setReturnValue(MachineRecipeTransfer.createRequest(recipe, context.getInventory(), 1).isPresent());
+            // Resolve stock once in craft(), where an unavailable recipe can also explain the shortfall.
+            callback.setReturnValue(true);
             return;
         }
         if (context.getType() != EmiCraftContext.Type.CRAFTABLE) {

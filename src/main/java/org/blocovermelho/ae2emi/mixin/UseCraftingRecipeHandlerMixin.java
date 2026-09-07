@@ -33,13 +33,14 @@ public abstract class UseCraftingRecipeHandlerMixin {
             return;
         }
 
-        var requirements = MachineRecipeTransfer.createRequest(recipe, context.getInventory(), context.getAmount());
-        if (requirements.isEmpty()) {
+        var plan = MachineRecipeTransfer.createRequest(recipe, context.getInventory(), context.getAmount());
+        MachineRecipeTransfer.reportShortfall(plan, context.getAmount());
+        if (plan.requirements().isEmpty()) {
             callback.setReturnValue(false);
             return;
         }
 
-        Ae2EmiNetwork.sendToServer(new TerminalIngredientRequest(menu.containerId, requirements.get()));
+        Ae2EmiNetwork.sendToServer(new TerminalIngredientRequest(menu.containerId, plan.requirements()));
         callback.setReturnValue(true);
     }
 }
