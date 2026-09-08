@@ -1,8 +1,28 @@
 # AE2 EMI Crafting — Forge 1.20.1
 
-This is a downstream Forge port of [blocovermelho/ae2-emi-crafting](https://github.com/blocovermelho/ae2-emi-crafting). It adds EMI synthetic-favorite crafting and machine-recipe item transfer controls to Applied Energistics 2 crafting terminals, with Monifactory as the primary compatibility target.
+AE2 EMI Crafting reduces the inventory work involved in following an EMI crafting plan. While an AE2 crafting terminal is open, it lets you craft from EMI favorites directly into your inventory or onto your cursor, and collect a machine recipe's item ingredients and physical catalysts from ME storage in one action.
 
-The port patches the EMI integration already present in Monifactory's AE2 build. It does not register a second set of AE2 recipes or replace AE2's terminal UI.
+For example, use EMI's **craft all to inventory** action on a Laser Engraver recipe to collect its available batches of inputs and its lens together, instead of searching for and withdrawing each item separately. You still load the machine and start processing yourself.
+
+This is a downstream Forge port of [blocovermelho/ae2-emi-crafting](https://github.com/blocovermelho/ae2-emi-crafting), with Monifactory as the primary compatibility target. It extends the EMI integration already present in Monifactory's AE2 build, using the existing terminal UI and EMI key bindings.
+
+## How this differs from AE2's `exposeInventoryToEmi` option
+
+AE2 already has a client setting named `exposeInventoryToEmi`. Enabling it lets EMI count items stored in the ME network when calculating craftability and synthetic favorites. **You do not need this mod just to make EMI aware of network stock.** Ordinary crafting-recipe `+` transfers are also built into AE2.
+
+The distinction is what happens when you act on a recipe. In the supported AE2 version, the built-in crafting handler transfers ingredients into the grid; it does not implement EMI's requested output destination and batch count. This mod adds those actions and extends ingredient collection to machine recipes.
+
+| Capability in an AE2 crafting terminal | AE2 with `exposeInventoryToEmi` enabled | With this mod |
+| --- | --- | --- |
+| Let EMI count stored network items | Built in | Also provided |
+| Fill a crafting recipe with an ordinary `+` click | Built in | Uses AE2's existing transfer |
+| Craft from favorites directly to inventory or cursor, honoring the requested batch limit | Not implemented by the built-in handler | Added |
+| Bulk-fill the grid with balanced repeated ingredients | Not provided by that handler | Added |
+| Collect machine-recipe items and physical catalysts into inventory | Not supported by that handler | Added, with stock and inventory-space limits |
+
+**Use this mod if you frequently craft from favorites or prepare machine recipes.** If you only want network-aware craftability and ordinary `+` transfers, AE2's built-in integration is sufficient.
+
+The mod currently supplies stored network items to EMI in crafting terminals even when `exposeInventoryToEmi` is `false`; you do not need to enable the option separately. Disabling it does not disable our crafting-terminal inventory exposure. This is a convenience and functionality addon: **we have not established a performance advantage over AE2 with the option enabled.** Both implementations scan the terminal's network entries, and large inventories can make EMI's calculations more expensive.
 
 ## Supported versions
 
@@ -20,7 +40,6 @@ Monifactory 0.13.7 and 0.13.8 use the same Forge, EMI, and AE2/MoniLabs dependen
 
 While an AE2 crafting terminal is open, the mod:
 
-- exposes the terminal's stored item inventory to EMI's craftability and synthetic-favorite calculations;
 - honors EMI's requested batch count for **craft one** and **craft all**;
 - supports crafting directly to the cursor or player inventory;
 - fills the crafting grid with the requested number of batches when no output destination is requested;
@@ -55,7 +74,7 @@ A plain recipe `+` click fills empty ingredient slots with one item and preserve
 
 ## Scope and tradeoffs
 
-Installing this mod opts crafting terminals into full stored-network exposure to EMI, even when AE2's `exposeInventoryToEmi` option is disabled. This is necessary for synthetic favorites to see ME-stored ingredients, but very large networks may make EMI's craftable calculations more expensive.
+The added workflows require this mod on both client and server and depend on the supported AE2 integration. Inventory exposure overlaps with AE2's existing config option; the added crafting and machine-transfer actions are the reason to install the mod. The performance measures below limit the overhead of those actions, rather than demonstrating that this mod is faster than stock AE2.
 
 Machine recipes are deliberately excluded from EMI's destination-less background Craftables-sidebar scan. That scan can run many times per second while a terminal is open; rejecting it before inspecting recipe ingredients keeps large tags and alternative lists off the rendering hot path. Machine ingredient resolution runs only when a user invokes one of the to-inventory actions.
 
