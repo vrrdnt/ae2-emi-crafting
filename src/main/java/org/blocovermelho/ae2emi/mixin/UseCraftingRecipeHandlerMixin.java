@@ -40,7 +40,7 @@ public abstract class UseCraftingRecipeHandlerMixin {
             return;
         }
 
-        Ae2EmiNetwork.sendToServer(new TerminalIngredientRequest(menu.containerId, plan.requirements()));
+        Ae2EmiNetwork.sendToServer(new TerminalIngredientRequest(menu.containerId, plan.batches(), plan.requirements()));
         callback.setReturnValue(true);
     }
 }

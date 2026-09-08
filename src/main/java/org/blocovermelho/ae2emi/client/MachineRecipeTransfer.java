@@ -51,7 +51,9 @@ public final class MachineRecipeTransfer {
                 .filter(batchSelection -> batchSelection.selections().size() <= TerminalIngredientRequest.MAX_REQUIREMENTS);
         var requirements = selected.map(batchSelection -> batchSelection.selections().stream()
                         .map(selection -> new TerminalIngredientRequest.ItemRequirement(
-                                AEItemKey.of(selection.key().getItemStack()), selection.amount()))
+                                AEItemKey.of(selection.key().getItemStack()),
+                                (selection.amount() - selection.catalystAmount()) / batchSelection.batches(),
+                                selection.catalystAmount()))
                         .toList())
                 .orElse(List.of());
         int batches = selected.map(MachineIngredientSelector.BatchSelection::batches).orElse(0);

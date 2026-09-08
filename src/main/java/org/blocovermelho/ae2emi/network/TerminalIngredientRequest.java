@@ -1,9 +1,7 @@
 package org.blocovermelho.ae2emi.network;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -23,11 +21,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
-public record TerminalIngredientRequest(int menuId, List<ItemRequirement> requirements) {
-    public static final int MAX_REQUIREMENTS = 32;
-    public static final long MAX_TOTAL_ITEMS = 36L * 64;
+public record TerminalIngredientRequest(int menuId, int batches, List<ItemRequirement> requirements) {
+    public static final int MAX_REQUIREMENTS = MachineTransferSizing.MAX_REQUIREMENTS;
+    public static final long MAX_TOTAL_ITEMS = MachineTransferSizing.MAX_TOTAL_ITEMS;
 
-    public record ItemRequirement(AEItemKey what, long amount) {
+    public record ItemRequirement(AEItemKey what, long perBatch, long catalyst) {
         public ItemRequirement {
             Objects.requireNonNull(what, "what");
         }
@@ -47,29 +45,35 @@ public record TerminalIngredientRequest(int menuId, List<ItemRequirement> requir
 
     public TerminalIngredientRequest {
         requirements = List.copyOf(requirements);
+        validateAndCombine(requirements, batches);
     }
 
     static void encode(TerminalIngredientRequest request, FriendlyByteBuf buffer) {
         buffer.writeVarInt(request.menuId);
+        buffer.writeVarInt(request.batches);
         buffer.writeVarInt(request.requirements.size());
         for (var requirement : request.requirements) {
             requirement.what.writeToPacket(buffer);
-            buffer.writeVarLong(requirement.amount);
+            buffer.writeVarLong(requirement.perBatch);
+            buffer.writeVarLong(requirement.catalyst);
         }
     }
 
     static TerminalIngredientRequest decode(FriendlyByteBuf buffer) {
         int menuId = buffer.readVarInt();
+        int batches = buffer.readVarInt();
         int size = buffer.readVarInt();
-        if (size < 1 || size > MAX_REQUIREMENTS) {
+        if (batches < 1 || batches > MAX_TOTAL_ITEMS || size < 1 || size > MAX_REQUIREMENTS) {
             throw new IllegalArgumentException("Invalid machine recipe ingredient count: " + size);
         }
 
         var requirements = new ArrayList<ItemRequirement>(size);
         for (int i = 0; i < size; i++) {
-            requirements.add(new ItemRequirement(AEItemKey.fromPacket(buffer), buffer.readVarLong()));
+            AEItemKey what = AEItemKey.fromPacket(buffer);
+            requirements.add(new ItemRequirement(what, buffer.readVarLong(), buffer.readVarLong()));
         }
-        return new TerminalIngredientRequest(menuId, requirements);
+        // Constructor validation rejects invalid/overflowing amounts on the network thread.
+        return new TerminalIngredientRequest(menuId, batches, requirements);
     }
 
     static void handle(TerminalIngredientRequest request, Supplier<NetworkEvent.Context> contextSupplier) {
@@ -77,17 +81,27 @@ public record TerminalIngredientRequest(int menuId, List<ItemRequirement> requir
         context.setPacketHandled(true);
 
         ServerPlayer player = context.getSender();
-        if (player == null || !(player.containerMenu instanceof CraftingTermMenu menu)) {
+        if (player == null || player.isSpectator() || !(player.containerMenu instanceof CraftingTermMenu menu)) {
             return;
         }
         if (request.menuId != menu.containerId || !menu.stillValid(player)) {
             return;
         }
 
-        List<Requirement> requirements = validateAndCombine(request.requirements);
-        if (requirements == null) {
+        var combined = validateAndCombine(request.requirements, request.batches);
+        var inventorySnapshot = new ArrayList<MachineTransferSizing.Slot<AEItemKey>>();
+        for (var stack : player.getInventory().items) {
+            inventorySnapshot.add(new MachineTransferSizing.Slot<>(AEItemKey.of(stack), stack.getCount(),
+                    Math.min(64, stack.getMaxStackSize())));
+        }
+        int batches = MachineTransferSizing.maximumFitting(combined, request.batches, inventorySnapshot,
+                key -> Math.min(64, key.getMaxStackSize()));
+        if (batches == 0) {
+            show(player, "message.ae2emi.machine_transfer.full");
             return;
         }
+        List<Requirement> requirements = combined.stream()
+                .map(item -> new Requirement(item.key(), Math.toIntExact(item.amount(batches)))).toList();
 
         var node = menu.getNetworkNode();
         if (node == null || node.getGrid() == null) {
@@ -110,7 +124,7 @@ public record TerminalIngredientRequest(int menuId, List<ItemRequirement> requir
 
         int incoming = plans.stream().mapToInt(TransferPlan::incoming).sum();
         if (incoming == 0) {
-            show(player, "message.ae2emi.machine_transfer.already_present");
+            showResult(player, "message.ae2emi.machine_transfer.already_present", batches, request.batches);
             return;
         }
         if (!extractFromNetwork(menu, player, plans, storage, energy)) {
@@ -139,32 +153,16 @@ public record TerminalIngredientRequest(int menuId, List<ItemRequirement> requir
             menu.slotsChanged(matrix.toContainer());
         }
         menu.broadcastChanges();
-        show(player, deliveredToInventory
+        showResult(player, deliveredToInventory
                 ? "message.ae2emi.machine_transfer.success"
-                : "message.ae2emi.machine_transfer.full");
+                : "message.ae2emi.machine_transfer.full", batches, request.batches);
     }
 
-    private static List<Requirement> validateAndCombine(List<ItemRequirement> requested) {
-        if (requested.isEmpty() || requested.size() > MAX_REQUIREMENTS) {
-            return null;
-        }
-
-        var combined = new LinkedHashMap<AEItemKey, Long>();
-        long total = 0;
-        for (var requirement : requested) {
-            if (requirement == null || requirement.what == null || requirement.amount <= 0
-                    || requirement.amount > MAX_TOTAL_ITEMS - total) {
-                return null;
-            }
-            total += requirement.amount;
-            combined.merge(requirement.what, requirement.amount, Long::sum);
-        }
-
-        var result = new ArrayList<Requirement>(combined.size());
-        for (Map.Entry<AEItemKey, Long> entry : combined.entrySet()) {
-            result.add(new Requirement(entry.getKey(), Math.toIntExact(entry.getValue())));
-        }
-        return result;
+    private static List<MachineTransferSizing.Requirement<AEItemKey>> validateAndCombine(
+            List<ItemRequirement> requested, int batches) {
+        return MachineTransferSizing.validateAndCombine(requested.stream()
+                .map(item -> new MachineTransferSizing.Requirement<>(item.what, item.perBatch, item.catalyst))
+                .toList(), batches);
     }
 
     private static List<TransferPlan> plan(
@@ -333,5 +331,14 @@ public record TerminalIngredientRequest(int menuId, List<ItemRequirement> requir
 
     private static void show(ServerPlayer player, String translationKey) {
         player.displayClientMessage(Component.translatable(translationKey), true);
+    }
+
+    private static void showResult(ServerPlayer player, String translationKey, int batches, int requested) {
+        if (batches < requested && !translationKey.equals("message.ae2emi.machine_transfer.full")) {
+            player.displayClientMessage(Component.translatable(
+                    "message.ae2emi.machine_transfer.inventory_limited", batches, requested), true);
+        } else {
+            show(player, translationKey);
+        }
     }
 }

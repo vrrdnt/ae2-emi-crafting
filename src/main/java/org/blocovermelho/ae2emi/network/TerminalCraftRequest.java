@@ -42,7 +42,7 @@ public record TerminalCraftRequest(int menuId, Destination destination, int amou
         context.setPacketHandled(true);
 
         ServerPlayer player = context.getSender();
-        if (player == null || !(player.containerMenu instanceof CraftingTermMenu menu)) {
+        if (player == null || player.isSpectator() || !(player.containerMenu instanceof CraftingTermMenu menu)) {
             return;
         }
         if (request.menuId != menu.containerId || !menu.stillValid(player) || !isValidAmount(request.amount)) {

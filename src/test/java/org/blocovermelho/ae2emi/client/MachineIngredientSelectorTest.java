@@ -14,6 +14,43 @@ import org.junit.jupiter.api.Test;
 
 class MachineIngredientSelectorTest {
     @Test
+    void selectionKeepsConsumedAndCatalystAmountsSeparateForTheSameItem() {
+        var result = MachineIngredientSelector.selectMaximum(
+                List.of(input("plate", 2), input("plate", 1), catalyst("plate", 2)),
+                key -> 32, 20, 2304).orElseThrow();
+        assertEquals(10, result.batches());
+        assertEquals(List.of(new MachineIngredientSelector.Selection<>("plate", 32, 2)), result.selections());
+    }
+
+    @Test
+    void backtrackingRetainsTheCatalystChosenForTheSuccessfulAssignment() {
+        var result = MachineIngredientSelector.select(
+                List.of(List.of(new MachineIngredientSelector.Alternative<>("a", 1, true),
+                                new MachineIngredientSelector.Alternative<>("b", 1, true)),
+                        List.of(item("a", 1), item("c", 1)),
+                        List.of(item("a", 1), item("c", 1))),
+                key -> 1, 64).orElseThrow();
+        assertTrue(result.contains(new MachineIngredientSelector.Selection<>("b", 1, 1)));
+        assertTrue(result.contains(new MachineIngredientSelector.Selection<>("a", 1, 0)));
+        assertTrue(result.contains(new MachineIngredientSelector.Selection<>("c", 1, 0)));
+    }
+
+    @Test
+    void largeMostlyUnavailableTagsStillSelectTheStockedAlternative() {
+        var alternatives = new ArrayList<MachineIngredientSelector.Alternative<String>>();
+        for (int i = 0; i < 10000; i++) {
+            alternatives.add(item("absent" + i, 2));
+        }
+        alternatives.add(item("available", 2));
+        var result = MachineIngredientSelector.selectMaximum(
+                List.of(new MachineIngredientSelector.Ingredient<>(alternatives, false), catalyst("lens", 1)),
+                key -> key.equals("available") ? 40 : key.equals("lens") ? 1 : 0,
+                64, 2304).orElseThrow();
+        assertEquals(20, result.batches());
+        assertTrue(result.selections().contains(new MachineIngredientSelector.Selection<>("available", 40)));
+    }
+
+    @Test
     void diodeShortfallReportsTheMissingItemsForTheFullOrder() {
         var ingredients = List.of(input("wire", 4), input("dust", 1));
         java.util.function.ToLongFunction<String> stock = key -> key.equals("wire") ? 8 : 1;
@@ -140,7 +177,7 @@ class MachineIngredientSelectorTest {
         assertEquals(10, result.batches());
         assertEquals(Map.of("plate", 1, "lens", 1), reads);
         assertTrue(result.selections().contains(new MachineIngredientSelector.Selection<>("plate", 30)));
-        assertTrue(result.selections().contains(new MachineIngredientSelector.Selection<>("lens", 1)));
+        assertTrue(result.selections().contains(new MachineIngredientSelector.Selection<>("lens", 1, 1)));
     }
 
     private static MachineIngredientSelector.Alternative<String> item(String key, long amount) {
@@ -247,7 +284,7 @@ class MachineIngredientSelectorTest {
         assertEquals(
                 List.of(
                         new MachineIngredientSelector.Selection<>("wafer", 5),
-                        new MachineIngredientSelector.Selection<>("lens", 1)),
+                        new MachineIngredientSelector.Selection<>("lens", 1, 1)),
                 result.selections());
     }
 

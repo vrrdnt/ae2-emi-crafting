@@ -31,6 +31,8 @@ While an AE2 crafting terminal is open, the mod:
 
 EMI remains a client-side dependency, but **AE2 EMI Crafting must be installed on both the client and server**. Single-player automatically supplies the server half through the integrated server.
 
+Version 0.3 uses a new network protocol to distinguish consumable items from catalysts when sizing a transfer. Upgrade both client and server together; older versions cannot connect to this protocol.
+
 ## Installation
 
 1. Download the regular JAR from this repository's [Releases](https://github.com/vrrdnt/ae2-emi-crafting/releases) page. Do not use the sources JAR.
@@ -41,7 +43,9 @@ Use EMI's configured sidebar actions for craft one, craft all, craft to cursor, 
 
 For a non-crafting machine recipe, invoke EMI's **craft one to inventory** or **craft all to inventory** action while its synthetic favorite is shown and an AE2 crafting terminal is open. Craft one prepares one batch. Craft all prepares the maximum number of complete batches requested by the synthetic favorite and currently available to the terminal. Machine transfer intentionally does not handle cursor or no-destination craft actions. Items already in the inventory count toward the requirement, so only the shortfall is moved from the crafting grid, cursor, or ME storage. Tag alternatives are resolved to a concrete stored item, and repeated requirements are combined.
 
-The server preflights every requested item and the destination capacity before changing anything. If the selected complete batch set is unavailable or will not fit, nothing is withdrawn. Physical item catalysts exposed by EMI, including non-consumable machine tools or lenses, are included once rather than multiplied by the batch count. GregTech's programmed circuit catalyst is excluded: it represents the machine's ghost circuit setting, which you must configure on the machine. Fluid requirements are intentionally ignored because this action does not move containers or interact with a machine's fluid tanks.
+The server chooses the largest number of complete batches that fits in the player's current inventory, accounting for items already present, partially filled stacks, and space for physical catalysts. For example, with one empty slot and a recipe requiring three plates per batch, a request for 64 batches prepares 21 batches (63 plates). A message reports when inventory space reduced the batch count. If even one complete batch cannot fit, nothing is withdrawn. The calculation keeps the client's selected item alternatives; it does not switch to a different alternative to improve packing.
+
+The server then preflights every required item and confirms destination capacity before changing anything. If the selected batch set is no longer available, nothing is withdrawn. Physical item catalysts exposed by EMI, including non-consumable machine tools or lenses, are included once rather than multiplied by the batch count, even when inventory space reduces the transfer. GregTech's programmed circuit catalyst is excluded: it represents the machine's ghost circuit setting, which you must configure on the machine. Fluid requirements are intentionally ignored because this action does not move containers or interact with a machine's fluid tanks.
 
 Synthetic favorites can be partially fulfilled: if a favorite requests 16 batches but the terminal can supply only three, **craft all to inventory** (such as `C`, when bound to that action) prepares those three complete batches. The favorite's requested amount and the machine-transfer safety cap remain upper bounds. At least one complete batch must be available to start; this does not schedule AE2 autocrafting for missing ingredients.
 
@@ -55,6 +59,8 @@ Installing this mod opts crafting terminals into full stored-network exposure to
 
 Machine recipes are deliberately excluded from EMI's destination-less background Craftables-sidebar scan. That scan can run many times per second while a terminal is open; rejecting it before inspecting recipe ingredients keeps large tags and alternative lists off the rendering hot path. Machine ingredient resolution runs only when a user invokes one of the to-inventory actions.
 
+Machine batch selection filters unavailable tag alternatives once before searching batch counts. Inventory-space sizing uses a snapshot and does not repeatedly query ME storage. Both terminal packet types share a per-connection budget of eight immediate actions and 20 additional actions per second; excess requests are dropped before scheduling game-thread work. Spectators cannot perform transfers or crafting through these packets. Machine packet counts and batch arithmetic are validated before scheduling, including overflow checks.
+
 Only items that are actually stored in the ME network, crafting grid, cursor, or player inventory count as available. An item that is merely autocraftable from an AE2 pattern is not advertised to EMI as if it already existed, and this mod does not automatically schedule those missing ingredients. For ordinary crafting recipes, a single **craft all** action is bounded to one crafting-grid stack (at most 64 recipe batches, and less for smaller stack sizes or output constraints). A machine transfer is separately capped at 2,304 total requested items and 32 concrete item types. It only prepares the exposed item requirements in the player's inventory; it does not insert them into a machine, move fluids, or start processing.
 
 Pattern-terminal virtual ingredient encoding from [AE2 issue #8074](https://github.com/AppliedEnergistics/Applied-Energistics-2/issues/8074) is outside this Forge port's current scope.
@@ -67,11 +73,13 @@ The Gradle wrapper provisions the build toolchains. The resulting runtime JAR ta
 ./gradlew build
 ```
 
-The build also runs regression tests for balanced crafting-grid allocation, multi-batch machine-recipe selection, one-count catalysts, stack limits, partial extraction, and item conservation, plus compiled-code contract checks for crafting actions, machine-transfer packet registration, requested-amount forwarding, background-scan rejection, and output-change guards. These checks do not replace in-game integration testing. To run just the tests, use `./gradlew test`.
+The build also runs regression tests for balanced crafting-grid allocation, multi-batch machine-recipe selection, catalyst accounting, inventory-space sizing against randomized insertion simulations, malformed request arithmetic, concurrent request limits, partial extraction, and item conservation, plus compiled-code contract checks for the integration wiring. These checks do not replace in-game integration testing. To run just the tests, use `./gradlew test`.
 
 Artifacts are written to `build/libs/`.
 
 The GitHub workflow builds every push and pull request targeting `forge/1.20.1`. Every successful branch push publishes its head commit's runtime JAR to a new GitHub Release; pull requests only upload an Actions artifact. Manually running the workflow on `forge/1.20.1` also publishes a release. A push containing multiple commits produces one release for the head commit.
+
+Builds run with read-only repository permissions. A separate publishing job receives write permission and uploads the completed artifact without executing the build or JAR. Actions are pinned to commit SHAs, checkout credentials are not persisted, and the Gradle distribution is checksum-verified.
 
 Branch builds automatically add the workflow run number to the patch component of `mod_version`. For example, base version `0.1.0` and run number `3` produce version `0.1.3`, tag `v0.1.3`, and JAR `ae2emi-forge-0.1.3.jar`. The same version is embedded in the mod metadata. Version numbers can have gaps because pull requests, failed builds, and manually tagged builds also consume run numbers. Re-running an existing run reuses its version and tag, preserving already-published JARs and retrying any missing upload. No version-bump commit or manually pushed tag is needed.
 

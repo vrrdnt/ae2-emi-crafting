@@ -10,7 +10,10 @@ import java.util.function.ToLongFunction;
 
 /** Selects one concrete item for every alternative-based recipe ingredient. */
 public final class MachineIngredientSelector {
-    public record Alternative<K>(K key, long amount) {
+    public record Alternative<K>(K key, long amount, boolean catalyst) {
+        public Alternative(K key, long amount) {
+            this(key, amount, false);
+        }
     }
 
     public record Ingredient<K>(List<Alternative<K>> alternatives, boolean catalyst) {
@@ -19,7 +22,10 @@ public final class MachineIngredientSelector {
         }
     }
 
-    public record Selection<K>(K key, long amount) {
+    public record Selection<K>(K key, long amount, long catalystAmount) {
+        public Selection(K key, long amount) {
+            this(key, amount, 0);
+        }
     }
 
     public record BatchSelection<K>(int batches, List<Selection<K>> selections) {
@@ -79,16 +85,18 @@ public final class MachineIngredientSelector {
         // Overlapping alternatives may require undoing an earlier choice. Bound both
         // recursion depth and alternative inspections so an impossible recipe stays cheap.
         var selected = new LinkedHashMap<K, Long>();
-        if (!search(new ArrayList<>(ingredients), cached, selected, maxTotal, new int[] {4096})) {
+        var catalysts = new HashMap<K, Long>();
+        if (!search(new ArrayList<>(ingredients), cached, selected, catalysts, maxTotal, new int[] {4096})) {
             return Optional.empty();
         }
         return Optional.of(selected.entrySet().stream()
-                .map(entry -> new Selection<>(entry.getKey(), entry.getValue())).toList());
+                .map(entry -> new Selection<>(entry.getKey(), entry.getValue(),
+                        catalysts.getOrDefault(entry.getKey(), 0L))).toList());
     }
 
     private static <K> boolean search(
             List<List<Alternative<K>>> remaining, ToLongFunction<K> available,
-            Map<K, Long> selected, long capacity, int[] inspectionsLeft) {
+            Map<K, Long> selected, Map<K, Long> catalysts, long capacity, int[] inspectionsLeft) {
         if (remaining.isEmpty()) {
             return true;
         }
@@ -122,9 +130,18 @@ public final class MachineIngredientSelector {
                 continue;
             }
             long previous = selected.getOrDefault(alternative.key(), 0L);
+            long previousCatalysts = catalysts.getOrDefault(alternative.key(), 0L);
             selected.put(alternative.key(), previous + alternative.amount());
-            if (search(remaining, available, selected, capacity - alternative.amount(), inspectionsLeft)) {
+            if (alternative.catalyst()) {
+                catalysts.put(alternative.key(), previousCatalysts + alternative.amount());
+            }
+            if (search(remaining, available, selected, catalysts, capacity - alternative.amount(), inspectionsLeft)) {
                 return true;
+            }
+            if (previousCatalysts == 0) {
+                catalysts.remove(alternative.key());
+            } else {
+                catalysts.put(alternative.key(), previousCatalysts);
             }
             if (previous == 0) {
                 selected.remove(alternative.key());
@@ -153,6 +170,7 @@ public final class MachineIngredientSelector {
 
         var remaining = new ArrayList<>(ingredients);
         var selected = new LinkedHashMap<K, Long>();
+        var catalysts = new HashMap<K, Long>();
         long total = 0;
 
         while (!remaining.isEmpty()) {
@@ -195,11 +213,15 @@ public final class MachineIngredientSelector {
             }
             total += choice.amount();
             selected.merge(choice.key(), choice.amount(), Long::sum);
+            if (choice.catalyst()) {
+                catalysts.merge(choice.key(), choice.amount(), Long::sum);
+            }
             remaining.remove(bestIngredient);
         }
 
         return Optional.of(selected.entrySet().stream()
-                .map(entry -> new Selection<>(entry.getKey(), entry.getValue()))
+                .map(entry -> new Selection<>(entry.getKey(), entry.getValue(),
+                        catalysts.getOrDefault(entry.getKey(), 0L)))
                 .toList());
     }
 
@@ -217,7 +239,26 @@ public final class MachineIngredientSelector {
         ToLongFunction<K> cachedAvailability = key -> availabilityCache.computeIfAbsent(
                 key, candidate -> Math.max(0, availability.applyAsLong(candidate)));
 
-        var best = selectScaled(ingredients, cachedAvailability, 1, maxTotal);
+        // An alternative unavailable for one batch cannot become available for a larger one.
+        // Filter large tags once, instead of scaling and rescanning their absent items for
+        // every binary-search probe (and every remaining ingredient in the greedy selector).
+        var stocked = new ArrayList<Ingredient<K>>(ingredients.size());
+        for (var ingredient : ingredients) {
+            var alternatives = new ArrayList<Alternative<K>>();
+            for (var alternative : ingredient.alternatives()) {
+                if (alternative.key() != null && alternative.amount() > 0
+                        && alternative.amount() <= maxTotal
+                        && cachedAvailability.applyAsLong(alternative.key()) >= alternative.amount()) {
+                    alternatives.add(alternative);
+                }
+            }
+            if (alternatives.isEmpty()) {
+                return Optional.empty();
+            }
+            stocked.add(new Ingredient<>(alternatives, ingredient.catalyst()));
+        }
+
+        var best = selectScaled(stocked, cachedAvailability, 1, maxTotal);
         if (best.isEmpty()) {
             return Optional.empty();
         }
@@ -225,7 +266,7 @@ public final class MachineIngredientSelector {
         int lowerBound = 1;
         while (lowerBound < upperBound) {
             int candidateBatches = lowerBound + (upperBound - lowerBound + 1) / 2;
-            var candidate = selectScaled(ingredients, cachedAvailability, candidateBatches, maxTotal);
+            var candidate = selectScaled(stocked, cachedAvailability, candidateBatches, maxTotal);
             if (candidate.isPresent()) {
                 lowerBound = candidateBatches;
                 best = candidate;
@@ -248,7 +289,8 @@ public final class MachineIngredientSelector {
             var alternatives = new ArrayList<Alternative<K>>(ingredient.alternatives.size());
             for (var alternative : ingredient.alternatives) {
                 if (alternative.amount > 0 && alternative.amount <= maxTotal / multiplier) {
-                    alternatives.add(new Alternative<>(alternative.key, alternative.amount * multiplier));
+                    alternatives.add(new Alternative<>(alternative.key, alternative.amount * multiplier,
+                            ingredient.catalyst));
                 }
             }
             scaled.add(alternatives);

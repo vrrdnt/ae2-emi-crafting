@@ -3,6 +3,7 @@
   "message.ae2emi.machine_transfer.full": "There is not enough room in your inventory for the recipe items.",
   "message.ae2emi.machine_transfer.missing": "The AE2 terminal cannot supply every required recipe item.",
   "message.ae2emi.machine_transfer.success": "Moved the recipe items to your inventory.",
+  "message.ae2emi.machine_transfer.inventory_limited": "Prepared %s of %s batches; your inventory cannot fit more complete batches.",
   "message.ae2emi.machine_transfer.more": "more",
   "message.ae2emi.machine_transfer.shortfall": "Terminal stock can supply %s batches. For %s batches, one ingredient combination still needs: %s."
 }
